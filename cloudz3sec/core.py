@@ -284,7 +284,7 @@ class PolicyManager():
 
 class TapisPolicyManager(PolicyManager):
     """
-    Convenience class for working with Tapis polies.
+    Convenience class for working with Tapis policies.
 
     Examples:
     t = core.TapisPolicyManager()
