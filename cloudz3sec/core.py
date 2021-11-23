@@ -84,6 +84,7 @@ class ServiceRe(StringEnumRe):
 class StringRe(object):
     """
     Base class for working with types that are strings that allow a full character set.
+    Example: path, username
     """
     
     def __init__(self, charset: set[chr]) -> None:
@@ -271,7 +272,7 @@ class PolicyManager():
         parts = principal.split('.')
         if not len(parts) == 3:
             raise InvalidValueError(f'principal should be contain exactly 2 dot characters; got {principal}')
-        p.set_data(site=parts[0], tenant=parts[1], username=parts[0])
+        p.set_data(site=parts[0], tenant=parts[1], username=parts[2])
         r = Resource(sites=self.sites, tenants=self.tenants, services=self.services)
         parts = resource.split('.')
         if not len(parts) == 4:
@@ -333,12 +334,12 @@ class PolicyEquivalenceChecker(object):
             return z3.And(z3.Or(*allow_match_list), z3.Not(z3.And(*deny_match_list)))
 
     def get_solver(self):
-        s = z3.Solver()
+        # s = z3.Solver()
         for p_set in [self.policy_set_1, self.policy_set_2]:
             allow_match_list = self.get_match_list(self.get_allow_policies(p_set))
             deny_match_list = self.get_match_list(self.get_deny_policies(p_set))
             self.statements.append(self.get_policy_set_re(allow_match_list, deny_match_list))
         # 
-        s.add(z3.Implies(self.statements[0], self.statements[1]))
-        return s
+        # s.add(z3.Implies(self.statements[0], self.statements[1]))
+        # return s
 
