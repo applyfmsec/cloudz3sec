@@ -312,9 +312,7 @@ class PolicyEquivalenceChecker(object):
         self.action = z3.String('action')
         
         # statements related to the policy sets (1 for each)
-        self.statements = []
-        # a z3 solver that can be used to prove implication theorms about the policy sets        
-        self.solver = self.get_solver()
+        self.P, self.Q = self.get_statements()
 
     def get_allow_policies(self, policy_set: list[Policy]):
         return [p for p in policy_set if p.decision == 'allow']
@@ -333,13 +331,8 @@ class PolicyEquivalenceChecker(object):
         else:
             return z3.And(z3.Or(*allow_match_list), z3.Not(z3.And(*deny_match_list)))
 
-    def get_solver(self):
-        # s = z3.Solver()
+    def get_statements(self):
         for p_set in [self.policy_set_1, self.policy_set_2]:
             allow_match_list = self.get_match_list(self.get_allow_policies(p_set))
             deny_match_list = self.get_match_list(self.get_deny_policies(p_set))
-            self.statements.append(self.get_policy_set_re(allow_match_list, deny_match_list))
-        # 
-        # s.add(z3.Implies(self.statements[0], self.statements[1]))
-        # return s
-
+            yield self.get_policy_set_re(allow_match_list, deny_match_list)
