@@ -294,3 +294,51 @@ class TapisPolicyManager(PolicyManager):
         super().__init__(sites=['tacc', 'uh'], 
                          tenants=['admin', 'cii', 'dev', 'a2cps', 'tacc'], 
                          services=['actors', 'apps', 'files', 'jobs', 'systems'])
+
+
+class PolicyEquivalenceChecker(object):
+    """
+    Class for reasoning formally about two sets of policies.
+    """
+    
+    def __init__(self, policy_set_1: list[Policy], policy_set_2: list[Policy]):
+        self.policy_set_1 = policy_set_1
+        self.policy_set_2 = policy_set_2
+        
+        # one free string variable for each dimensions of a policy
+        self.principal = z3.String('principal')
+        self.resource = z3.String('resource')
+        self.action = z3.String('action')
+        
+        # statements related to the policy sets (1 for each)
+        self.statements = []
+        # a z3 solver that can be used to prove implication theorms about the policy sets        
+        self.solver = self.get_solver()
+
+    def get_allow_policies(self, policy_set: list[Policy]):
+        return [p for p in policy_set if p.decision == 'allow']
+    
+    def get_deny_policies(self, policy_set: list[Policy]):
+        return [p for p in policy_set if p.decision == 'deny']
+    
+    def get_match_list(self, policy_set: list[Policy]):
+        return [z3.And(z3.InRe(self.principal, p.principal.to_re()), 
+                       z3.InRe(self.resource, p.resource.to_re()), z3.InRe(self.action, p.action.to_re())) 
+                       for p in policy_set]
+
+    def get_policy_set_re(self, allow_match_list: list, deny_match_list: list):
+        if len(deny_match_list) == 0:
+            return z3.Or(*deny_match_list)
+        else:
+            return z3.And(z3.Or(*allow_match_list), z3.Not(z3.And(*deny_match_list)))
+
+    def get_solver(self):
+        s = z3.Solver()
+        for p_set in [self.policy_set_1, self.policy_set_2]:
+            allow_match_list = self.get_match_list(self.get_allow_policies(p_set))
+            deny_match_list = self.get_match_list(self.get_deny_policies(p_set))
+            self.statements.append(self.get_policy_set_re(allow_match_list, deny_match_list))
+        # 
+        s.add(z3.Implies(self.statements[0], self.statements[1]))
+        return s
+
