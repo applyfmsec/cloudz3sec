@@ -283,6 +283,13 @@ class PolicyManager():
 
 
 class TapisPolicyManager(PolicyManager):
+    """
+    Convenience class for working with Tapis polies.
+
+    Examples:
+    t = core.TapisPolicyManager()
+    p = t.policy_from_strs('tacc.dev.testuser1', 'tacc.dev.files./sys1/*', 'GET', 'allow')
+    """
     def __init__(self):
         super().__init__(sites=['tacc', 'uh'], 
                          tenants=['admin', 'cii', 'dev', 'a2cps', 'tacc'], 
