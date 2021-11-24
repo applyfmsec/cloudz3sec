@@ -2,14 +2,11 @@ from enum import Enum
 from typing import Any, Dict
 import z3
 from cloudz3sec.errors import InvalidValueError, InvalidCharacterError, InvalidStringTupleStructure, \
-     InvalidStringTupleData, MissingStringEnumData, MissingStringTupleData
+     InvalidStringTupleData, MissingStringTupleData, InvalidPolicyStructure, MissingPolicyField, \
+         InvalidPolicyFieldType
 
 
 RESERVED_CHARS = set('.',)
-
-ALPHANUM_SET = set('abcdefghijklmnopqrstuvwxyz0123456789')
-
-PATH_CHAR_SET = set('abcdefghijklmnopqrstuvwxyz0123456789_/')
 
 
 class StringEnumRe(object):
@@ -42,43 +39,6 @@ class StringEnumRe(object):
             message=f"value {value} is not allowed for type {type(self)}; allowed values are {self.values}"
             raise InvalidValueError(message=message)
         return z3.Re(z3.StringVal(value))
-
-
-class HTTPVerbRe(StringEnumRe):
-    """
-    Class representing HTTP verbs.
-    """
-    def __init__(self) -> None:
-        values = ['GET', 'POST', 'PUT', 'DELETE']
-        super().__init__(values)
-
-
-class SiteRe(StringEnumRe):
-    """
-    Class representing the sites in a platform.
-
-    `sites` - the list of sites defined in the platform.
-    """
-    def __init__(self, sites: list[str]):
-        super().__init__(sites)
-
-
-class TenantRe(StringEnumRe):
-    """
-    Class representing the set of tenants in a platform.
-    `tenants` - the list of tenants defined in the platform.
-    """
-    def __init__(self, tenants: list[str]):
-        super().__init__(tenants)
-
-
-class ServiceRe(StringEnumRe):
-    """
-    Class representing the set of services in a platform.
-    `services` - the list of allo
-    """
-    def __init__(self, services: list[str]):
-        super().__init__(services)
 
 
 class StringRe(object):
@@ -168,162 +128,97 @@ class StringTupleRe(object):
                 raise InvalidStringTupleData(message=f'Required field {f} missing in call to set_data.')
 
 
-class Prinicipal(StringTupleRe):
+class Decision(object):
     """
-    Class representing a "principal"; i.e., an identity in a cloud system.
-    
-    Examples:
-    sites = ['tacc', 'uh']
-    tenants = ['dev', 'cii', 'admmin', 'tacc']
-    p = core.Prinicipal(sites=sites, tenants=tenants)
-    p.set_data(site='tacc', tenant='dev', username='testuser*')
-    simplify(InRe('tacc.dev.testuser12', p.to_re()))
-    Out: True
-    simplify(InRe('uh.dev.testuser12', p.to_re()))
-    Out: False
-
+    A class representing a decision in a policy. 
     """
-    
-    def __init__(self, sites: list[str], tenants: list[str]) -> None:
-        self.sites = sites
-        self.tenants = tenants
-        fields = [
-            {'name': 'site', 'type': SiteRe, 'kwargs': {'sites': sites} },
-            {'name': 'tenant', 'type': TenantRe, 'kwargs': {'tenants': tenants}},
-            {'name': 'username', 'type': StringRe, 'kwargs': {'charset': ALPHANUM_SET }}
-        ]
-        super().__init__(fields)
-
-
-class Resource(StringTupleRe):
-    """
-    Class representing a "resource"; i.e., a path on a service within a tenant at some site.
-
-    Examples:
-    sites = ['tacc', 'uh']
-    tenants = ['dev', 'cii', 'admmin', 'tacc']
-    services = ['actors', 'apps', 'files, 'jobs', 'systems']
-    r = core.Resource(sites=sites, tenants=tenants, services=services)
-    r.set_data(site='tacc', tenant='dev', service='apps', path='/app1')
-
-    r.set_data(site='tacc', tenant='dev', service='files', path='/sys1/*')
-    simplify(InRe('tacc.dev.files./sys1/some/path/on/sys1', r.to_re()))
-      Out: True
-    """
-    
-    def __init__(self, sites: list[str], tenants: list[str], services: list[str]) -> None:
-        self.sites = sites
-        self.tenants = tenants
-        self.services = services
-        fields = [
-            {'name': 'site', 'type': SiteRe, 'kwargs': {'sites': sites} },
-            {'name': 'tenant', 'type': TenantRe, 'kwargs': {'tenants': tenants} },
-            {'name': 'service', 'type': ServiceRe, 'kwargs': {'services': services} },
-            {'name': 'path', 'type': StringRe, 'kwargs': {'charset': PATH_CHAR_SET} },
-        ]
-        super().__init__(fields=fields)
-
-
-class Action(HTTPVerbRe):
-    """
-    Class representing an action on a resource; i.e., an HTTP verb.
-    a = Action()
-    a.set_data('GET')
-    """
-    def __init__(self) -> None:
-        super().__init__()
-        self.data = {}
-
-    def set_data(self, verb):
-        self.data['verb'] = verb
-    
-    def to_re(self):
-        if not self.data:
-            raise MissingStringEnumData(message=f'No data found on {type(self)} object; was set_data() called?')
-        self.re = super().to_re(value=self.data['verb'])
-        return self.re
-
-
-class Policy(object):
-    """
-    Class representing a security policy.
-    """
-
-    def __init__(self, principal: Prinicipal, resource: Resource, action: Action, decision: Enum('allow', 'deny')) -> None:
-        if not decision in ('allow', 'deny'):
-            raise InvalidValueError(message=f'Policy decision must be allow or deny, got {decision}.' )
-        self.principal = principal
-        self.resource = resource
-        self.action = action
+    def __init__(self, decision: str) -> None:
+        if not decision in ['allow', 'deny']:
+            raise InvalidValueError(f'Decisions must have value allow or deny; got {decision}.')
         self.decision = decision
 
 
-class PolicyManager():
+class BasePolicy(object):
     """
-    Convenience class for creaing policies.
+    Base class for working with policies.
     """
-    def __init__(self, sites, tenants, services):
-        self.sites = sites
-        self.tenants = tenants
-        self.services = services
-
-    def policy_from_strs(self, principal: str, resource: str, action: str, decision: str):
-        p = Prinicipal(sites=self.sites, tenants=self.tenants)
-        parts = principal.split('.')
-        if not len(parts) == 3:
-            raise InvalidValueError(f'principal should be contain exactly 2 dot characters; got {principal}')
-        p.set_data(site=parts[0], tenant=parts[1], username=parts[2])
-        r = Resource(sites=self.sites, tenants=self.tenants, services=self.services)
-        parts = resource.split('.')
-        if not len(parts) == 4:
-            raise InvalidValueError(f'resource should be contain exactly 3 dot characters; got {resource}')
-        r.set_data(site=parts[0], tenant=parts[1], service=parts[2], path=parts[3])
-        a = Action()
-        a.set_data(action)
-        return Policy(p, r, a, decision)
-
-
-class TapisPolicyManager(PolicyManager):
-    """
-    Convenience class for working with Tapis policies.
-
-    Examples:
-    t = core.TapisPolicyManager()
-    p = t.policy_from_strs('tacc.dev.testuser1', 'tacc.dev.files./sys1/*', 'GET', 'allow')
-    """
-    def __init__(self):
-        super().__init__(sites=['tacc', 'uh'], 
-                         tenants=['admin', 'cii', 'dev', 'a2cps', 'tacc'], 
-                         services=['actors', 'apps', 'files', 'jobs', 'systems'])
-
+    def __init__(self, fields: list[Dict[str, Any]], **kwargs) -> None:
+        # every policy is currently required to have exactly one decision field, because the decision property is critical to the
+        # current implementation of the policy equivalence checker.
+        found_decision = False
+        # we want to track the fields that are not the decision field, as these will be analyzed together by the policy equivalence checker
+        not_decision_fields = []
+        for f in fields:
+            if not 'name' in f:
+                raise InvalidPolicyStructure(message=f'field {f} missing required "name" key.')
+            if not type(f['name']) == str:
+                raise InvalidPolicyStructure(message=f'field {f} "name" property should be type string.')
+            if not 'type' in f:
+                raise InvalidPolicyStructure(message=f'field {f} missing required "type" key.')
+            if not type(f['type']) == type:
+                raise InvalidPolicyStructure(message=f'field {f} "type" property should be type Type.')
+            # create an attribute on the policy for each field defined. 
+            property = f['name']
+            prop_type = f['type']
+            if prop_type == Decision:
+                # if we already found a Decision, this is the 2nd one and that is an error.
+                if found_decision:
+                    raise InvalidPolicyStructure(message=f'A property can have only one Decision field; found 2 or more.')
+                found_decision = True
+                self.decision_field = property
+            else:
+                not_decision_fields.append(f)
+            if not property in kwargs.keys():
+                raise MissingPolicyField(message=f'Policy requires the {property} parameter. Found: {kwargs.keys()}')
+            if not type(kwargs[property]) == prop_type:
+                raise InvalidPolicyFieldType(message=f'field {property} must be of type {prop_type}; got {type(kwargs[property])}.')
+            setattr(self, property, kwargs[property])
+        # todo -- decide about this
+        # if we did not find a decision, we can either raise an error or add one automatically. for now, we will raise an error
+        if not found_decision:
+            raise InvalidPolicyStructure(message='A policy class is required to have exactly one Deciion field; and did not find one.')
+        self.all_fields = fields
+        self.fields = not_decision_fields
+        self.field_names = [f['name'] for f in self.fields]        
+        
 
 class PolicyEquivalenceChecker(object):
     """
     Class for reasoning formally about two sets of policies.
     """
     
-    def __init__(self, policy_set_1: list[Policy], policy_set_2: list[Policy]):
+    def __init__(self, policy_type: type, policy_set_1: list[BasePolicy], policy_set_2: list[BasePolicy]):
+        # the type of policies this policy checker is working with. Should be a child of BasePolicy
+        self.policy_type = policy_type
+        
+        # the two sets of policies
         self.policy_set_1 = policy_set_1
         self.policy_set_2 = policy_set_2
         
         # one free string variable for each dimensions of a policy
-        self.principal = z3.String('principal')
-        self.resource = z3.String('resource')
-        self.action = z3.String('action')
-        
+        self.free_variables = {}
+        for f in self.policy_type.fields:
+            # the Decision field is special and is a dimension of the equations
+            if f['type'] == Decision:
+                continue
+            prop_name = f['name']
+            self.free_variables[prop_name] = z3.String(prop_name)
+
         # statements related to the policy sets (1 for each)
         self.P, self.Q = self.get_statements()
 
-    def get_allow_policies(self, policy_set: list[Policy]):
-        return [p for p in policy_set if p.decision == 'allow']
+    def get_allow_policies(self, policy_set: list[BasePolicy]):
+        return [p for p in policy_set if getattr(p, p.decision_field).decision == 'allow']
     
-    def get_deny_policies(self, policy_set: list[Policy]):
-        return [p for p in policy_set if p.decision == 'deny']
+    def get_deny_policies(self, policy_set: list[BasePolicy]):
+        return [p for p in policy_set if getattr(p, p.decision_field).decision == 'deny']
     
-    def get_match_list(self, policy_set: list[Policy]):
-        return [z3.And(z3.InRe(self.principal, p.principal.to_re()), 
-                       z3.InRe(self.resource, p.resource.to_re()), z3.InRe(self.action, p.action.to_re())) 
-                       for p in policy_set]
+    def get_match_list(self, policy_set: list[BasePolicy]):
+        and_list = []
+        for p in policy_set:
+            and_re = [z3.InRe(self.free_variables[f], getattr(p, f).to_re()) for f in self.free_variables.keys() ]
+            and_list.append(z3.And(*and_re))
+        return and_list
 
     def get_policy_set_re(self, allow_match_list: list, deny_match_list: list):
         if len(deny_match_list) == 0:

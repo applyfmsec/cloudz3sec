@@ -1,8 +1,9 @@
-from cloudz3sec.core import TapisPolicyManager, PolicyEquivalenceChecker
+from cloudz3sec.cloud import CloudPolicy, CloudPolicyManager
+from cloudz3sec.core import PolicyEquivalenceChecker
 import z3
 
 # convenience instance for creating policies
-t = TapisPolicyManager()
+t = CloudPolicyManager()
 
 # create two sets of policies, p and q
 
@@ -15,7 +16,7 @@ p = [p1, p2]
 q1 = t.policy_from_strs('tacc.dev.testuser1', 'tacc.dev.systems./sys1', 'GET', 'allow')
 q2 = t.policy_from_strs('tacc.dev.testuser1', 'tacc.dev.systems./sys2', 'GET', 'deny')
 q = [q1, q2]
-chk_1 = PolicyEquivalenceChecker(policy_set_1=p, policy_set_2=q)
+chk_1 = PolicyEquivalenceChecker(policy_type=CloudPolicy, policy_set_1=p, policy_set_2=q)
 
 # z3 proves that the Q policy set is less permissive than P:
 # >>> z3.prove(z3.Implies(chk_1.Q, chk_1.P))
@@ -39,7 +40,7 @@ p = [p1, p2]
 q1 = t.policy_from_strs('tacc.dev.testuser1', 'tacc.dev.systems./sys1', 'GET', 'allow')
 q2 = t.policy_from_strs('tacc.dev.testuser1', 'tacc.dev.systems./sys2', 'GET', 'deny')
 q = [q1, q2]
-chk_2 = PolicyEquivalenceChecker(policy_set_1=p, policy_set_2=q)
+chk_2 = PolicyEquivalenceChecker(policy_type=CloudPolicy, policy_set_1=p, policy_set_2=q)
 
 # >>> z3.prove(z3.Implies(chk_2.P, chk_2.Q))
 # counterexample
@@ -64,7 +65,7 @@ p = [p1, p2]
 q1 = t.policy_from_strs('tacc.dev.testuser1', 'tacc.dev.files./*', 'GET', 'allow')
 q2 = t.policy_from_strs('tacc.dev.testuser1', 'tacc.dev.files./sys2/*', 'GET', 'deny')
 q = [q1, q2]
-chk_3 = PolicyEquivalenceChecker(policy_set_1=p, policy_set_2=q)
+chk_3 = PolicyEquivalenceChecker(policy_type=CloudPolicy, policy_set_1=p, policy_set_2=q)
 
 # In this case, z3 can find a counter example to Q => P
 # >>> z3.prove(z3.Implies(chk_3.Q, chk_3.P))

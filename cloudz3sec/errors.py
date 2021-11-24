@@ -5,6 +5,7 @@ from typing import Optional
 class BaseCloudz3SecError(Exception):
     def __init__(self, message: Optional[str]) -> None:
         self.message = message
+        print(message)
 
 
 class InvalidCharacterError(BaseCloudz3SecError):
@@ -44,5 +45,26 @@ class InvalidStringTupleData(BaseCloudz3SecError):
 class MissingStringEnumData(BaseCloudz3SecError):
     """
     Raised when a StringEnum type does not have required data set.
+    """
+    pass
+
+
+class InvalidPolicyStructure(BaseCloudz3SecError):
+    """
+    Raised when a Policy contstructor is passed an improperly formatted fields argument. 
+    """
+    pass
+
+
+class MissingPolicyField(BaseCloudz3SecError):
+    """
+    Raised when a Policy contstructor is not passed an instance of one its speficied fields. 
+    """
+    pass
+
+
+class InvalidPolicyFieldType(BaseCloudz3SecError):
+    """
+    Raised when a Policy contstructor is passed a field with the wrong type. 
     """
     pass
