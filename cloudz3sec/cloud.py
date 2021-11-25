@@ -1,10 +1,15 @@
+"""
+This module provides An example of using the core module classes to create a policy engine for a specific application domaing -- cloud
+services. This example makes specific choices about what fields to include and their types. These choices won't be appropriate even for 
+all cloud services, but it serves as an example for making others.
+"""
+
 from cloudz3sec import core
 from cloudz3sec.errors import MissingStringEnumData, InvalidValueError
 
 ALPHANUM_SET = set('abcdefghijklmnopqrstuvwxyz0123456789')
 
 PATH_CHAR_SET = set('abcdefghijklmnopqrstuvwxyz0123456789_/')
-
 
 
 class SiteRe(core.StringEnumRe):

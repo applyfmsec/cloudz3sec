@@ -14,7 +14,7 @@ class BaseRe(object):
     The base class for all classes equpied with regular expression 
     """
     
-    def to_re(self, value):
+    def to_re(self, value=None):
         raise NotImplementedError()
 
     def set_data(self, value):
@@ -30,8 +30,8 @@ class StringEnumRe(BaseRe):
     Base class for working with types that are restricted to a set of valid strings.
 
     Examples include the 
-        * HTTPVerbs type, which can take values ["GET", "POST", "PUT", "DELETE", ...]
-        * Types from the application domain which are pre-determined finite lists (e.g., tenants).
+        * Action type, which is an HTTP verb and can take values like "GET", "POST", "PUT", "DELETE", ...
+        * Types from the application domain which are pre-determined finite lists, e.g., "sites", "tenants", "services", etc.
 
     """
     
@@ -77,7 +77,6 @@ class StringRe(BaseRe):
         self.charset = charset
         self.z_all_vals_re_ref = z3.Star(z3.Union([z3.Re(z3.StringVal(c)) for c in charset]))
     
-
     def to_re(self, value=None):
         if not value:
             if hasattr(self, 'data'):
@@ -158,6 +157,7 @@ class StringTupleRe(BaseRe):
 class Decision(object):
     """
     A class representing a decision in a policy. 
+    In the current implementation, every Policy must have exactly one decision field.
     """
     def __init__(self, decision: str) -> None:
         if not decision in ['allow', 'deny']:
@@ -167,7 +167,7 @@ class Decision(object):
 
 class BasePolicy(object):
     """
-    Base class for working with policies.
+    Base class for working with policies. Decend from this class and specify the fields for your policy engine.
     """
     def __init__(self, fields: list[Dict[str, Any]], **kwargs) -> None:
         # every policy is currently required to have exactly one decision field, because the decision property is critical to the
