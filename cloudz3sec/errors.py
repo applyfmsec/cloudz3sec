@@ -29,6 +29,20 @@ class InvalidStringTupleStructure(BaseCloudz3SecError):
     pass
 
 
+class MissingStringEnumData(BaseCloudz3SecError):
+    """
+    Raised when a StringEnum type does not have required data set.
+    """
+    pass
+
+
+class MissingStringReData(BaseCloudz3SecError):
+    """
+    Raised when a StringRe type does not have required data set.
+    """
+    pass
+
+
 class MissingStringTupleData(BaseCloudz3SecError):
     """
     Raised when a StringTuple type does not have required data set.
@@ -38,13 +52,6 @@ class MissingStringTupleData(BaseCloudz3SecError):
 class InvalidStringTupleData(BaseCloudz3SecError):
     """
     Raised when a StringTupleRe set_data method is passed an improperly formatted key-word argument. 
-    """
-    pass
-
-
-class MissingStringEnumData(BaseCloudz3SecError):
-    """
-    Raised when a StringEnum type does not have required data set.
     """
     pass
 

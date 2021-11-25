@@ -6,34 +6,6 @@ ALPHANUM_SET = set('abcdefghijklmnopqrstuvwxyz0123456789')
 PATH_CHAR_SET = set('abcdefghijklmnopqrstuvwxyz0123456789_/')
 
 
-class HTTPVerbRe(core.StringEnumRe):
-    """
-    Class representing HTTP verbs.
-    """
-    def __init__(self) -> None:
-        values = ['GET', 'POST', 'PUT', 'DELETE']
-        super().__init__(values)
-
-
-class Action(HTTPVerbRe):
-    """
-    Class representing an action on a resource; i.e., an HTTP verb.
-    a = Action()
-    a.set_data('GET')
-    """
-    def __init__(self) -> None:
-        super().__init__()
-        self.data = {}
-
-    def set_data(self, verb):
-        self.data['verb'] = verb
-    
-    def to_re(self):
-        if not self.data:
-            raise MissingStringEnumData(message=f'No data found on {type(self)} object; was set_data() called?')
-        self.re = super().to_re(value=self.data['verb'])
-        return self.re
-
 
 class SiteRe(core.StringEnumRe):
     """
@@ -117,6 +89,19 @@ class Resource(core.StringTupleRe):
             {'name': 'path', 'type': core.StringRe, 'kwargs': {'charset': PATH_CHAR_SET} },
         ]
         super().__init__(fields=fields)
+
+
+class Action(core.StringEnumRe):
+    """
+    Class representing an action on a resource; i.e., an HTTP verb.
+    a = Action()
+    a.set_data('GET')
+    """
+
+    def __init__(self):
+        values = ['GET', 'POST', 'PUT', 'DELETE']
+        super().__init__(values)
+
 
 
 class CloudPolicy(core.BasePolicy):

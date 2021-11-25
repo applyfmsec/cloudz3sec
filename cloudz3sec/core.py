@@ -2,14 +2,30 @@ from enum import Enum
 from typing import Any, Dict
 import z3
 from cloudz3sec.errors import InvalidValueError, InvalidCharacterError, InvalidStringTupleStructure, \
-     InvalidStringTupleData, MissingStringTupleData, InvalidPolicyStructure, MissingPolicyField, \
-         InvalidPolicyFieldType
+     InvalidStringTupleData, MissingStringTupleData, InvalidPolicyStructure, MissingPolicyField, MissingStringEnumData, \
+         MissingStringReData, InvalidPolicyFieldType
 
 
 RESERVED_CHARS = set('.',)
 
 
-class StringEnumRe(object):
+class BaseRe(object):
+    """
+    The base class for all classes equpied with regular expression 
+    """
+    
+    def to_re(self, value):
+        raise NotImplementedError()
+
+    def set_data(self, value):
+        """
+        Set the data for the instance.
+        Override this method in child classes for more complex types/behavior.
+        """
+        self.data = value
+
+
+class StringEnumRe(BaseRe):
     """
     Base class for working with types that are restricted to a set of valid strings.
 
@@ -31,8 +47,13 @@ class StringEnumRe(object):
         self.values = values
         self.z_all_vals_re_ref = z3.Union([z3.Re(z3.StringVal(v)) for v in values])
         self.re = self.to_re
-
-    def to_re(self, value):        
+    
+    def to_re(self, value=None):
+        if not value:
+            if hasattr(self, 'data'):
+                value = self.data
+            else:
+                raise MissingStringEnumData('No value passed to to_re() and no data on instance. Was set_data called()?')
         if value == '*':
             return self.z_all_vals_re_ref
         if value not in self.values:
@@ -41,7 +62,7 @@ class StringEnumRe(object):
         return z3.Re(z3.StringVal(value))
 
 
-class StringRe(object):
+class StringRe(BaseRe):
     """
     Base class for working with types that are strings that allow a full character set.
     Example: path, username
@@ -56,7 +77,13 @@ class StringRe(object):
         self.charset = charset
         self.z_all_vals_re_ref = z3.Star(z3.Union([z3.Re(z3.StringVal(c)) for c in charset]))
     
-    def to_re(self, value):
+
+    def to_re(self, value=None):
+        if not value:
+            if hasattr(self, 'data'):
+                value = self.data
+            else:
+                raise MissingStringReData('No value passed to to_re() and no data on instance. Was set_data called()?')
         if value == '*':
             return self.z_all_vals_re_ref
         if not '*' in value:
@@ -81,7 +108,7 @@ class StringRe(object):
         return result
 
  
-class StringTupleRe(object):
+class StringTupleRe(BaseRe):
     """
     Base class for working with types that are tuples of string types.  
     """
