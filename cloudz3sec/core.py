@@ -11,7 +11,7 @@ RESERVED_CHARS = set('.',)
 
 class BaseRe(object):
     """
-    The base class for all classes equpied with regular expression 
+    The base class for all classes equpied with z3 regular expressions.
     """
     
     def to_re(self, value=None):
@@ -46,7 +46,6 @@ class StringEnumRe(BaseRe):
                     raise InvalidCharacterError(message=msg)
         self.values = values
         self.z_all_vals_re_ref = z3.Union([z3.Re(z3.StringVal(v)) for v in values])
-        self.re = self.to_re
     
     def to_re(self, value=None):
         if not value:
@@ -140,8 +139,7 @@ class StringTupleRe(BaseRe):
             # separate each field in the tuple with a dot ('.') character, but not after the very last field:
             if idx < len(self.fields)-1:
                 res.append(z3.Re(z3.StringVal('.')))
-        self.re = z3.Concat(*res)
-        return self.re
+        return z3.Concat(*res)
 
     def set_data(self, **kwargs):
         for k, v in kwargs.items():
