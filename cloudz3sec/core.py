@@ -217,8 +217,8 @@ class PolicyEquivalenceChecker(object):
         self.policy_type = policy_type
         
         # the two sets of policies
-        self.policy_set_1 = policy_set_p
-        self.policy_set_2 = policy_set_q
+        self.policy_set_p = policy_set_p
+        self.policy_set_q = policy_set_q
         
         # one free string variable for each dimensions of a policy
         self.free_variables = {}
