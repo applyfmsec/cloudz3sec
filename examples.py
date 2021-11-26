@@ -16,18 +16,18 @@ p = [p1, p2]
 q1 = t.policy_from_strs('tacc.dev.testuser1', 'tacc.dev.systems./sys1', 'GET', 'allow')
 q2 = t.policy_from_strs('tacc.dev.testuser1', 'tacc.dev.systems./sys2', 'GET', 'deny')
 q = [q1, q2]
-chk_1 = PolicyEquivalenceChecker(policy_type=CloudPolicy, policy_set_1=p, policy_set_2=q)
+chk_1 = PolicyEquivalenceChecker(policy_type=CloudPolicy, policy_set_p=p, policy_set_q=q)
 
 # z3 proves that the Q policy set is less permissive than P:
-# >>> z3.prove(z3.Implies(chk_1.Q, chk_1.P))
+chk_1.q_implies_p()
 # proved
 # 
 # and it finds a counter example when we ask it to prove that P => Q:
-# >>> z3.prove(z3.Implies(chk_1.P, chk_1.Q))
+chk_1.p_implies_q()
 # counterexample
 # [action = "PUT",
 #  resource = "tacc.dev.systems./sys1",
- # principal = "tacc.dev.testuser1"]
+#  principal = "tacc.dev.testuser1"]
 
 
 # example 2:
@@ -40,15 +40,15 @@ p = [p1, p2]
 q1 = t.policy_from_strs('tacc.dev.testuser1', 'tacc.dev.systems./sys1', 'GET', 'allow')
 q2 = t.policy_from_strs('tacc.dev.testuser1', 'tacc.dev.systems./sys2', 'GET', 'deny')
 q = [q1, q2]
-chk_2 = PolicyEquivalenceChecker(policy_type=CloudPolicy, policy_set_1=p, policy_set_2=q)
+chk_2 = PolicyEquivalenceChecker(policy_type=CloudPolicy, policy_set_p=p, policy_set_q=q)
 
-# >>> z3.prove(z3.Implies(chk_2.P, chk_2.Q))
+chk_2.p_implies_q()
 # counterexample
 # [resource = "tacc.dev.systems./sys1/",
-# action = "POST",
-# principal = "tacc.dev.testuser1"]
+#  action = "POST",
+#  principal = "tacc.dev.testuser1"]
 #
-# >>> z3.prove(z3.Implies(chk_2.Q, chk_2.P))
+chk_2.q_implies_p()
 # counterexample
 # [action = "GET",
 # resource = "tacc.dev.systems./sys1",
@@ -65,16 +65,16 @@ p = [p1, p2]
 q1 = t.policy_from_strs('tacc.dev.testuser1', 'tacc.dev.files./*', 'GET', 'allow')
 q2 = t.policy_from_strs('tacc.dev.testuser1', 'tacc.dev.files./sys2/*', 'GET', 'deny')
 q = [q1, q2]
-chk_3 = PolicyEquivalenceChecker(policy_type=CloudPolicy, policy_set_1=p, policy_set_2=q)
+chk_3 = PolicyEquivalenceChecker(policy_type=CloudPolicy, policy_set_p=p, policy_set_q=q)
 
 # In this case, z3 can find a counter example to Q => P
-# >>> z3.prove(z3.Implies(chk_3.Q, chk_3.P))
+chk_3.q_implies_p()
 # counterexample
 # [resource = "tacc.dev.files./",
 # action = "GET",
 # principal = "tacc.dev.testuser1"]
 
 # However, in this case z3 gets stuck trying to prove that P => Q
-# z3.prove(z3.Implies(chk_3.P, chk_3.Q))
+# chk_3.p_implies_q()
 # (... hangs ....)
 #

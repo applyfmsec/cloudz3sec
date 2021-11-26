@@ -212,13 +212,13 @@ class PolicyEquivalenceChecker(object):
     Class for reasoning formally about two sets of policies.
     """
     
-    def __init__(self, policy_type: type, policy_set_1: list[BasePolicy], policy_set_2: list[BasePolicy]):
+    def __init__(self, policy_type: type, policy_set_p: list[BasePolicy], policy_set_q: list[BasePolicy]):
         # the type of policies this policy checker is working with. Should be a child of BasePolicy
         self.policy_type = policy_type
         
         # the two sets of policies
-        self.policy_set_1 = policy_set_1
-        self.policy_set_2 = policy_set_2
+        self.policy_set_1 = policy_set_p
+        self.policy_set_2 = policy_set_q
         
         # one free string variable for each dimensions of a policy
         self.free_variables = {}
@@ -252,7 +252,16 @@ class PolicyEquivalenceChecker(object):
             return z3.And(z3.Or(*allow_match_list), z3.Not(z3.And(*deny_match_list)))
 
     def get_statements(self):
-        for p_set in [self.policy_set_1, self.policy_set_2]:
+        for p_set in [self.policy_set_p, self.policy_set_q]:
             allow_match_list = self.get_match_list(self.get_allow_policies(p_set))
             deny_match_list = self.get_match_list(self.get_deny_policies(p_set))
             yield self.get_policy_set_re(allow_match_list, deny_match_list)
+
+    def prove(self, statement_1, statement_2):
+        return z3.prove(z3.Implies(statement_1, statement_2))
+
+    def p_implies_q(self):
+        return self.prove(self.P, self.Q)
+
+    def q_implies_p(self):
+        return self.prove(self.Q, self.P)
