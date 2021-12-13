@@ -107,6 +107,13 @@ class Action(core.StringEnumRe):
         values = ['GET', 'POST', 'PUT', 'DELETE']
         super().__init__(values)
 
+class SrcIp(core.IpAddr):
+    """
+    Class representing src ip address
+    """
+    def __init__(self, ip_addr ) -> None:
+        super().__init__(ip_addr)
+
 
 
 class CloudPolicy(core.BasePolicy):
@@ -118,6 +125,7 @@ class CloudPolicy(core.BasePolicy):
         {'name': 'principal', 'type': Principal},
         {'name': 'resource', 'type': Resource},
         {'name': 'action', 'type': Action},
+        {'name': 'src_ip', 'type': SrcIp},
         {'name': 'decision', 'type': core.Decision}
     ]
 
@@ -138,7 +146,7 @@ class CloudPolicyManager(object):
         self.tenants = ['admin', 'cii', 'dev', 'a2cps', 'tacc']
         self.services = ['actors', 'apps', 'files', 'jobs', 'systems']
 
-    def policy_from_strs(self, principal: str, resource: str, action: str, decision: str):
+    def policy_from_strs(self, principal: str, resource: str, action: str, src_ip: str, decision: str):
         p = Principal(sites=self.sites, tenants=self.tenants)
         parts = principal.split('.')
         if not len(parts) == 3:
@@ -151,7 +159,10 @@ class CloudPolicyManager(object):
         r.set_data(site=parts[0], tenant=parts[1], service=parts[2], path=parts[3])
         a = Action()
         a.set_data(action)
-        return CloudPolicy(principal=p, resource=r, action=a, decision=core.Decision(decision))
+
+        ipaddr = SrcIp(ip_addr=src_ip)
+        ipaddr.set_data()
+        return CloudPolicy(principal=p, resource=r, action=a, src_ip=ipaddr, decision=core.Decision(decision))
 
 
 

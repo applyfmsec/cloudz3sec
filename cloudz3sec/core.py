@@ -151,7 +151,45 @@ class StringTupleRe(BaseRe):
             if f not in self.data.keys():
                 raise InvalidStringTupleData(message=f'Required field {f} missing in call to set_data.')
 
+class IpAddr(object):
+    """
+    A class representing string of the IP address in the CIDR format
+    """
+    def __init__(self, ip_addr:str) ->None:
+        # TODO check if the format of the ip address is a.b.c.d/[0..32]
+        # TODO where a,b,c,d  each lies between 0 and 255
+        ip_split = ip_addr.split('/')
+        self.ip = ip_split[0]
+        self.netmasklen = ip_split[1]
 
+
+    def convert_to_bv(self,ip:str) :
+        #ip_split = ip_addr.split('/')
+        print("ip: "+ ip)
+        abcd = ip.split('.')
+        abcd
+        addr_bit_vec = []
+        for i in range(0, 4):
+           addr_bit_vec.append(z3.BitVecVal(abcd[i], 8))
+        ip_bit_vec = z3.Concat(addr_bit_vec[0], addr_bit_vec[1], addr_bit_vec[2], addr_bit_vec[3])
+        print("sexpr :"+ str(ip_bit_vec.sexpr()) )
+        return ip_bit_vec
+
+    #def netmask_bv(self, ip_bit_vec:z3.BitVecRef, netmask_bit_vec:z3.BitVecRef):
+    #    return ip_bit_vec & netmask_bit_vec
+
+    def set_data(self):
+        ip_bv = self.convert_to_bv(self.ip)
+        if self.netmasklen == 24:
+            netmask_bv = self.convert_to_bv('255.255.255.0')
+        else: # 16 bit
+            netmask_bv = self.convert_to_bv('255.255.0.0')
+
+        self.masked_ip_bv = ip_bv & netmask_bv
+    #def match(self, bit_vec_1: z3.BitVecRef,bit_vec_2:z3.BitVecRef ):
+    #    return z3.simplify(bit_vec_1 == bit_vec_2)
+    def to_masked_bv(self):
+        return self.masked_ip_bv
 class Decision(object):
     """
     A class representing a decision in a policy. 
@@ -227,6 +265,7 @@ class PolicyEquivalenceChecker(object):
             if f['type'] == Decision:
                 continue
             prop_name = f['name']
+            print("prop_name: " + prop_name)
             self.free_variables[prop_name] = z3.String(prop_name)
 
         # statements related to the policy sets (1 for each)
@@ -241,8 +280,9 @@ class PolicyEquivalenceChecker(object):
     def get_match_list(self, policy_set: list[BasePolicy]):
         and_list = []
         for p in policy_set:
-            and_re = [z3.InRe(self.free_variables[f], getattr(p, f).to_re()) for f in self.free_variables.keys() ]
+            and_re = [ z3.InRe(self.free_variables[f], getattr(p, f).to_re()) if f != 'src_ip' else self.free_variables[f].to_masked_bv() == getattr(p,f).to_masked_bv() for f in self.free_variables.keys() ]
             and_list.append(z3.And(*and_re))
+
         return and_list
 
     def get_policy_set_re(self, allow_match_list: list, deny_match_list: list):
