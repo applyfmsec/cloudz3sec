@@ -5,6 +5,7 @@ from cloudz3sec.errors import InvalidValueError, InvalidCharacterError, InvalidS
      InvalidStringTupleData, MissingStringTupleData, InvalidPolicyStructure, MissingPolicyField, MissingStringEnumData, \
          MissingStringReData, InvalidPolicyFieldType
 
+#from cloudz3sec.cloudz3sec.cloud import SrcIp
 
 RESERVED_CHARS = set('.',)
 
@@ -267,6 +268,11 @@ class PolicyEquivalenceChecker(object):
             prop_name = f['name']
             print("prop_name: " + prop_name)
             self.free_variables[prop_name] = z3.String(prop_name)
+            if f['type'] == IpAddr:
+                #self.free_variables[prop_name] = z3.Concat(z3.BitVec('a',8),z3.BitVec('b',8),z3.BitVec('c',8),z3.BitVec('d',8))
+                x = z3.BitVec('x',32)
+                self.free_variables[prop_name] = x
+                # print(self.free_variables[prop_name])
 
         # statements related to the policy sets (1 for each)
         self.P, self.Q = self.get_statements()
@@ -280,14 +286,15 @@ class PolicyEquivalenceChecker(object):
     def get_match_list(self, policy_set: list[BasePolicy]):
         and_list = []
         for p in policy_set:
-            and_re = [ z3.InRe(self.free_variables[f], getattr(p, f).to_re()) if f != 'src_ip' else self.free_variables[f].to_masked_bv() == getattr(p,f).to_masked_bv() for f in self.free_variables.keys() ]
+
+            and_re = [ z3.InRe(self.free_variables[f], getattr(p, f).to_re()) if self.free_variables[f] == z3.z3.SeqRef  else z3.simplify(self.free_variables[f] == getattr(p,f)) for f in self.free_variables.keys() ]
             and_list.append(z3.And(*and_re))
 
         return and_list
 
     def get_policy_set_re(self, allow_match_list: list, deny_match_list: list):
         if len(deny_match_list) == 0:
-            return z3.Or(*deny_match_list)
+            return z3.Or(*allow_match_list)
         else:
             return z3.And(z3.Or(*allow_match_list), z3.Not(z3.And(*deny_match_list)))
 

@@ -107,12 +107,12 @@ class Action(core.StringEnumRe):
         values = ['GET', 'POST', 'PUT', 'DELETE']
         super().__init__(values)
 
-class SrcIp(core.IpAddr):
-    """
-    Class representing src ip address
-    """
-    def __init__(self, ip_addr ) -> None:
-        super().__init__(ip_addr)
+# class SrcIp(core.IpAddr):
+#     """
+#     Class representing src ip address
+#     """
+#     def __init__(self, ip_addr ) -> None:
+#         super().__init__(ip_addr)
 
 
 
@@ -125,7 +125,7 @@ class CloudPolicy(core.BasePolicy):
         {'name': 'principal', 'type': Principal},
         {'name': 'resource', 'type': Resource},
         {'name': 'action', 'type': Action},
-        {'name': 'src_ip', 'type': SrcIp},
+        {'name': 'src_ip', 'type': core.IpAddr},
         {'name': 'decision', 'type': core.Decision}
     ]
 
@@ -160,7 +160,7 @@ class CloudPolicyManager(object):
         a = Action()
         a.set_data(action)
 
-        ipaddr = SrcIp(ip_addr=src_ip)
+        ipaddr = core.IpAddr(ip_addr=src_ip)
         ipaddr.set_data()
         return CloudPolicy(principal=p, resource=r, action=a, src_ip=ipaddr, decision=core.Decision(decision))
 
