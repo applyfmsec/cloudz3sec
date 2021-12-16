@@ -162,13 +162,12 @@ class IpAddr(object):
         ip_split = ip_addr.split('/')
         self.ip = ip_split[0]
         self.netmasklen = ip_split[1]
-
+        print(self.netmasklen)
 
     def convert_to_bv(self,ip:str) :
         #ip_split = ip_addr.split('/')
-        print("ip: "+ ip)
+        print(" converting ip to bit vec: "+ ip)
         abcd = ip.split('.')
-        abcd
         addr_bit_vec = []
         for i in range(0, 4):
            addr_bit_vec.append(z3.BitVecVal(abcd[i], 8))
@@ -181,12 +180,13 @@ class IpAddr(object):
 
     def set_data(self):
         ip_bv = self.convert_to_bv(self.ip)
-        if self.netmasklen == 24:
+        if self.netmasklen == '24':
             netmask_bv = self.convert_to_bv('255.255.255.0')
         else: # 16 bit
             netmask_bv = self.convert_to_bv('255.255.0.0')
 
         self.masked_ip_bv = ip_bv & netmask_bv
+        print('masked_ip_bv: ' + str(z3.simplify(self.masked_ip_bv)))
     #def match(self, bit_vec_1: z3.BitVecRef,bit_vec_2:z3.BitVecRef ):
     #    return z3.simplify(bit_vec_1 == bit_vec_2)
     def to_masked_bv(self):
@@ -261,6 +261,7 @@ class PolicyEquivalenceChecker(object):
         
         # one free string variable for each dimensions of a policy
         self.free_variables = {}
+        self.free_variables_type = {}
         for f in self.policy_type.fields:
             # the Decision field is special and is a dimension of the equations
             if f['type'] == Decision:
@@ -268,15 +269,31 @@ class PolicyEquivalenceChecker(object):
             prop_name = f['name']
             print("prop_name: " + prop_name)
             self.free_variables[prop_name] = z3.String(prop_name)
-            if f['type'] == IpAddr:
-                #self.free_variables[prop_name] = z3.Concat(z3.BitVec('a',8),z3.BitVec('b',8),z3.BitVec('c',8),z3.BitVec('d',8))
-                x = z3.BitVec('x',32)
-                self.free_variables[prop_name] = x
-                # print(self.free_variables[prop_name])
 
-        # statements related to the policy sets (1 for each)
+            if f['type'] == IpAddr:
+                x= z3.Concat(z3.BitVec('a',8),z3.BitVec('b',8),z3.BitVec('c',8),z3.BitVec('d',8))
+                self.free_variables[prop_name] = x
+                #x = z3.BitVec('x',32)
+                #self.free_variables[prop_name] = x
+                # print(self.free_variables[prop_name])
+            self.free_variables_type[prop_name] = f['type']
+
+            # statements related to the policy sets (1 for each)
         self.P, self.Q = self.get_statements()
 
+    def get_masked_bv(self, netmasklen):
+
+        if netmasklen == '24':
+            netmask_ip = IpAddr('255.255.255.0/24')
+            netmask_ip.set_data()
+
+        else:  # 16 bit
+            netmask_ip = IpAddr('255.255.0.0/16')
+            netmask_ip.set_data()
+        netmask_bv = netmask_ip.to_masked_bv()
+        return netmask_bv
+
+        self.masked_ip_bv = x & netmask_bv
     def get_allow_policies(self, policy_set: list[BasePolicy]):
         return [p for p in policy_set if getattr(p, p.decision_field).decision == 'allow']
     
@@ -286,10 +303,10 @@ class PolicyEquivalenceChecker(object):
     def get_match_list(self, policy_set: list[BasePolicy]):
         and_list = []
         for p in policy_set:
-
-            and_re = [ z3.InRe(self.free_variables[f], getattr(p, f).to_re()) if self.free_variables[f] == z3.z3.SeqRef  else z3.simplify(self.free_variables[f] == getattr(p,f)) for f in self.free_variables.keys() ]
+            and_re = [ z3.InRe(self.free_variables[f], getattr(p, f).to_re()) if self.free_variables_type[f] != IpAddr  else z3.simplify(self.free_variables[f] & self.get_masked_bv(getattr(p,f).netmasklen) == getattr(p,f).to_masked_bv()) for f in self.free_variables.keys() ]
             and_list.append(z3.And(*and_re))
 
+        print(and_list)
         return and_list
 
     def get_policy_set_re(self, allow_match_list: list, deny_match_list: list):
