@@ -125,7 +125,7 @@ class CloudPolicy(core.BasePolicy):
         {'name': 'principal', 'type': Principal},
         {'name': 'resource', 'type': Resource},
         {'name': 'action', 'type': Action},
-        {'name': 'src_ip', 'type': core.IpAddr},
+        {'name': 'src_ip', 'type': core.IpAddr2},
         {'name': 'decision', 'type': core.Decision}
     ]
 
@@ -160,8 +160,20 @@ class CloudPolicyManager(object):
         a = Action()
         a.set_data(action)
 
-        ipaddr = core.IpAddr(ip_addr=src_ip)
-        ipaddr.set_data()
+        try:
+            ip_addr, netmasklen = src_ip.split('/')
+        except ValueError:
+            msg = "Could not get IP address and netmask length from src_ip ({src_ip}). " + \
+            f"Format should be A.B.C.D/E."
+            raise InvalidValueError(msg)
+        try: 
+            netmasklen = int(netmasklen)
+        except:
+            raise InvalidValueError(f"Got invalid netmask length from src_ip ({src_ip}). " + \
+            "Format should be A.B.C.D/E where E is an integer.")
+
+        ipaddr = core.IpAddr2(netmasklen)
+        ipaddr.set_data(ip_addr=src_ip)
         return CloudPolicy(principal=p, resource=r, action=a, src_ip=ipaddr, decision=core.Decision(decision))
 
 

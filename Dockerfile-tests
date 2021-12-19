@@ -8,6 +8,8 @@ RUN python -m pip install -r requirements-tests.txt
 
 USER cloudz3sec
 COPY tests  /home/cloudz3sec/tests
+
+COPY examples /home/cloudz3sec/examples
 WORKDIR /home/cloudz3sec
 
 ENTRYPOINT ["pytest"]
