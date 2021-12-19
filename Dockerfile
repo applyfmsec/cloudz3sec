@@ -17,4 +17,4 @@ RUN python -m pip install -r requirements.txt
 RUN adduser -u 4872 --disabled-password --gecos "" cloudz3sec
 USER cloudz3sec
 
-COPY cloudz3sec /home/cloudz3sec/code
+COPY cloudz3sec /home/cloudz3sec/cloudz3sec
