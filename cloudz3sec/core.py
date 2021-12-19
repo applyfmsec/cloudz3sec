@@ -1,6 +1,7 @@
 from enum import Enum
 from typing import Any, Dict
 import z3
+from cloudz3sec import errors
 from cloudz3sec.errors import InvalidValueError, InvalidCharacterError, InvalidStringTupleStructure, \
      InvalidStringTupleData, MissingStringTupleData, InvalidPolicyStructure, MissingPolicyField, MissingStringEnumData, \
          MissingStringReData, InvalidPolicyFieldType
@@ -24,6 +25,20 @@ class BaseRe(object):
         Override this method in child classes for more complex types/behavior.
         """
         self.data = value
+
+    def get_z3_boolref(self, name: str) -> z3.z3.BoolRef:
+        """
+        Generate a z3 boolean expression in one or more free variables that equals the constraint in the free variable(s)
+        represented by the value specified for this instance. 
+        `name` - the name to use when generating the free varaible(s). Typically, the `name` will be given by the name of the
+        field in the policy.
+
+        Note: this function can only be called once set_data() has been called on the instance.
+        """
+        if not hasattr(self, 'data') or not self.data:
+            raise MissingStringEnumData('No data on instance. get_z3_boolref requires data. Was set_data called()?')
+        free_var = z3.String(name)
+        return z3.InRe(free_var, self.to_re())
 
 
 class StringEnumRe(BaseRe):
@@ -83,6 +98,9 @@ class StringRe(BaseRe):
                 value = self.data
             else:
                 raise MissingStringReData('No value passed to to_re() and no data on instance. Was set_data called()?')
+        # check that the value is contained within the charset plus the * character
+        if not self.charset.union(set('*')).intersection(set(value)) == set(value):
+            raise errors.InvalidValueError("Data must be contained within the charset for this StringrRe.")
         if value == '*':
             return self.z_all_vals_re_ref
         if not '*' in value:
@@ -152,6 +170,7 @@ class StringTupleRe(BaseRe):
             if f not in self.data.keys():
                 raise InvalidStringTupleData(message=f'Required field {f} missing in call to set_data.')
 
+
 class IpAddr(object):
     """
     A class representing string of the IP address in the CIDR format
@@ -191,6 +210,8 @@ class IpAddr(object):
     #    return z3.simplify(bit_vec_1 == bit_vec_2)
     def to_masked_bv(self):
         return self.masked_ip_bv
+
+
 class Decision(object):
     """
     A class representing a decision in a policy. 
@@ -221,6 +242,9 @@ class BasePolicy(object):
                 raise InvalidPolicyStructure(message=f'field {f} missing required "type" key.')
             if not type(f['type']) == type:
                 raise InvalidPolicyStructure(message=f'field {f} "type" property should be type Type.')
+            # TODO -- we could check that the value of f['type'] is one of the classes that we recognize, i.e.,
+            # a StringEnumRe, StringRe, StringTupleRe, etc.
+
             # create an attribute on the policy for each field defined. 
             property = f['name']
             prop_type = f['type']
@@ -236,6 +260,13 @@ class BasePolicy(object):
                 raise MissingPolicyField(message=f'Policy requires the {property} parameter. Found: {kwargs.keys()}')
             if not type(kwargs[property]) == prop_type:
                 raise InvalidPolicyFieldType(message=f'field {property} must be of type {prop_type}; got {type(kwargs[property])}.')
+            # check that at the least, each field that is not a Decision field has a function on it that
+            # can return the z3 free variable
+            if not prop_type == Decision:
+                if not hasattr(kwargs[property], 'get_z3_boolref'):
+                    raise InvalidPolicyFieldType(message=f'field {property} must have a function get_z3_boolref but it does not.')
+            # this creates an attribute on the Policy object whose name is the name of the field and whose 
+            # value is the value of the kwarg of the same name.
             setattr(self, property, kwargs[property])
         # todo -- decide about this
         # if we did not find a decision, we can either raise an error or add one automatically. for now, we will raise an error
@@ -262,21 +293,26 @@ class PolicyEquivalenceChecker(object):
         # one free string variable for each dimensions of a policy
         self.free_variables = {}
         self.free_variables_type = {}
-        for f in self.policy_type.fields:
-            # the Decision field is special and is a dimension of the equations
-            if f['type'] == Decision:
-                continue
-            prop_name = f['name']
-            print("prop_name: " + prop_name)
-            self.free_variables[prop_name] = z3.String(prop_name)
+        # the list of proerty names that will be contributing to the z3 boolean expression constraints. 
+        # the Decision field is treated in a special way and does not contribute a z3 boolean expression so we skip it
+        # here.
+        self.z3_constraint_property_names = [f['name'] for f in self.policy_type.fields if not f['type'] == Decision]
+        # for f in self.policy_type.fields:
+        #     # the Decision field is special and is not a dimension of the equations
+        #     if f['type'] == Decision:
+        #         continue
+        #     prop_name = f['name']
+        #     print("prop_name: " + prop_name)
+        #     # self.free_variables[prop_name] = f['type'].get_field_z3_free_var(prop_name)
+        #     self.free_variables[prop_name] = z3.String(prop_name)
 
-            if f['type'] == IpAddr:
-                x= z3.Concat(z3.BitVec('a',8),z3.BitVec('b',8),z3.BitVec('c',8),z3.BitVec('d',8))
-                self.free_variables[prop_name] = x
-                #x = z3.BitVec('x',32)
-                #self.free_variables[prop_name] = x
-                # print(self.free_variables[prop_name])
-            self.free_variables_type[prop_name] = f['type']
+        #     if f['type'] == IpAddr:
+        #         x= z3.Concat(z3.BitVec('a',8),z3.BitVec('b',8),z3.BitVec('c',8),z3.BitVec('d',8))
+        #         self.free_variables[prop_name] = x
+        #         #x = z3.BitVec('x',32)
+        #         #self.free_variables[prop_name] = x
+        #         # print(self.free_variables[prop_name])
+        #     self.free_variables_type[prop_name] = f['type']
 
             # statements related to the policy sets (1 for each)
         self.P, self.Q = self.get_statements()
@@ -303,7 +339,9 @@ class PolicyEquivalenceChecker(object):
     def get_match_list(self, policy_set: list[BasePolicy]):
         and_list = []
         for p in policy_set:
-            and_re = [ z3.InRe(self.free_variables[f], getattr(p, f).to_re()) if self.free_variables_type[f] != IpAddr  else z3.simplify(self.free_variables[f] & self.get_masked_bv(getattr(p,f).netmasklen) == getattr(p,f).to_masked_bv()) for f in self.free_variables.keys() ]
+            # and_re = [ z3.InRe(self.free_variables[f], getattr(p, f).to_re()) if self.free_variables_type[f] != IpAddr  else z3.simplify(self.free_variables[f] & self.get_masked_bv(getattr(p,f).netmasklen) == getattr(p,f).to_masked_bv()) for f in self.free_variables.keys() ]
+            # and_re = [getattr(p, f).get_z3_boolref(f) for f in self.free_variables.keys()]
+            and_re = [getattr(p, f).get_z3_boolref(f) for f in self.z3_constraint_property_names]
             and_list.append(z3.And(*and_re))
 
         print(and_list)
