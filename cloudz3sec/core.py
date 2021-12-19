@@ -171,6 +171,52 @@ class StringTupleRe(BaseRe):
                 raise InvalidStringTupleData(message=f'Required field {f} missing in call to set_data.')
 
 
+class IpAddr2(object):
+    """
+    A class representing string of the IP address in the CIDR format.
+    """
+
+    def __init__(self, netmasklen: int):
+        self.netmasklen = netmasklen
+        if self.netmasklen == 24:
+            self.netmask_bv = self.convert_to_bv('255.255.255.0')
+        # TODO -- is this right?
+        elif self.netmasklen == 16: # 16 bit
+            self.netmask_bv = self.convert_to_bv('255.255.0.0')
+        elif self.netmasklen == 8: # 8 bit 
+            self.netmask_bv = self.convert_to_bv('255.0.0.0')
+        else:
+            raise InvalidValueError(f"Value {netmasklen} is not a supported netmaskelen. Valid values are: 8,16,24.") 
+
+    def convert_to_bv(self, ip: str):
+        """
+        Convert an IP address (string) to a z3 bit vector value.
+        """
+        parts = ip.split('.')
+        if not len(parts) == 4:
+            raise InvalidValueError("Invalid IP address; format must be A.B.C.D")
+        # TODO -- why 8?
+        addr_bit_vecs = [z3.BitVecVal(part, 8) for part in parts]
+        return z3.Concat(*addr_bit_vecs)
+
+    def set_data(self, ip_addr: str):
+        """
+        Set the actual IP address for this instance.
+        """
+        self.ip_addr = ip_addr
+        self.ip_bv = self.convert_to_bv(ip_addr)
+        self.masked_ip_bv = self.ip_bv & self.netmask_bv
+
+    def get_z3_boolref(self, name):
+        # TODO -- test this for correctness
+        free_vars = z3.Concat(z3.BitVec(f'{name}_a', 8), 
+                              z3.BitVec(f'{name}_b', 8), 
+                              z3.BitVec(f'{name}_c', 8), 
+                              z3.BitVec(f'{name}_d', 8))
+        return z3.simplify(free_vars & self.netmask_bv == self.masked_ip_bv)
+
+
+
 class IpAddr(object):
     """
     A class representing string of the IP address in the CIDR format
@@ -297,39 +343,22 @@ class PolicyEquivalenceChecker(object):
         # the Decision field is treated in a special way and does not contribute a z3 boolean expression so we skip it
         # here.
         self.z3_constraint_property_names = [f['name'] for f in self.policy_type.fields if not f['type'] == Decision]
-        # for f in self.policy_type.fields:
-        #     # the Decision field is special and is not a dimension of the equations
-        #     if f['type'] == Decision:
-        #         continue
-        #     prop_name = f['name']
-        #     print("prop_name: " + prop_name)
-        #     # self.free_variables[prop_name] = f['type'].get_field_z3_free_var(prop_name)
-        #     self.free_variables[prop_name] = z3.String(prop_name)
-
-        #     if f['type'] == IpAddr:
-        #         x= z3.Concat(z3.BitVec('a',8),z3.BitVec('b',8),z3.BitVec('c',8),z3.BitVec('d',8))
-        #         self.free_variables[prop_name] = x
-        #         #x = z3.BitVec('x',32)
-        #         #self.free_variables[prop_name] = x
-        #         # print(self.free_variables[prop_name])
-        #     self.free_variables_type[prop_name] = f['type']
-
-            # statements related to the policy sets (1 for each)
+        # statements related to the policy sets (1 for each)
         self.P, self.Q = self.get_statements()
 
-    def get_masked_bv(self, netmasklen):
+    # def get_masked_bv(self, netmasklen):
 
-        if netmasklen == '24':
-            netmask_ip = IpAddr('255.255.255.0/24')
-            netmask_ip.set_data()
+    #     if netmasklen == '24':
+    #         netmask_ip = IpAddr('255.255.255.0/24')
+    #         netmask_ip.set_data()
 
-        else:  # 16 bit
-            netmask_ip = IpAddr('255.255.0.0/16')
-            netmask_ip.set_data()
-        netmask_bv = netmask_ip.to_masked_bv()
-        return netmask_bv
-
-        self.masked_ip_bv = x & netmask_bv
+    #     else:  # 16 bit
+    #         netmask_ip = IpAddr('255.255.0.0/16')
+    #         netmask_ip.set_data()
+    #     netmask_bv = netmask_ip.to_masked_bv()
+    #     return netmask_bv
+        # self.masked_ip_bv = x & netmask_bv
+    
     def get_allow_policies(self, policy_set: list[BasePolicy]):
         return [p for p in policy_set if getattr(p, p.decision_field).decision == 'allow']
     
@@ -341,8 +370,8 @@ class PolicyEquivalenceChecker(object):
         for p in policy_set:
             # and_re = [ z3.InRe(self.free_variables[f], getattr(p, f).to_re()) if self.free_variables_type[f] != IpAddr  else z3.simplify(self.free_variables[f] & self.get_masked_bv(getattr(p,f).netmasklen) == getattr(p,f).to_masked_bv()) for f in self.free_variables.keys() ]
             # and_re = [getattr(p, f).get_z3_boolref(f) for f in self.free_variables.keys()]
-            and_re = [getattr(p, f).get_z3_boolref(f) for f in self.z3_constraint_property_names]
-            and_list.append(z3.And(*and_re))
+            boolrefs = [getattr(p, f).get_z3_boolref(f) for f in self.z3_constraint_property_names]
+            and_list.append(z3.And(*boolrefs))
 
         print(and_list)
         return and_list

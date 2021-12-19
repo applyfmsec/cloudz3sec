@@ -183,6 +183,16 @@ def test_string_tuple_re_invalid():
         s.to_re()
 
 
+def get_simple_ip_addr():
+    return core.IpAddr2(netmasklen=24)
+
+
+def test_ip_addr_basic():
+    ip_addr = get_simple_ip_addr()
+    ip_addr.set_data('11.22.33.0')
+    assert ip_addr.ip_bv == z3.Concat(z3.BitVecVal('11',8),z3.BitVecVal('22',8),z3.BitVecVal('33',8),z3.BitVecVal('0',8))
+
+
 # we'll define two types to create our policy class with ----  
 class User(core.StringTupleRe):
     # here we define a class User representing a user in a cloud system. It has two fields: the "username"
@@ -294,7 +304,7 @@ def test_basic_policy_invalid():
     endpoint.set_data(url_path='/foo/*', verb='*')
     with pytest.raises(errors.InvalidPolicyStructure):
         policy = core.BasePolicy(fields=fields, user=user, endpoint=endpoint)
-    # let's add the decision field back so we get past that error:
+    # let's add the decision field so we get past that error:
     fields.append({'name': 'decision', 'type': core.Decision})
     decision = core.Decision('allow')
     # let's create a new User object and not call set_data
