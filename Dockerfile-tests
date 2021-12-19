@@ -1,0 +1,13 @@
+# Image: jstubbs/cloudz3sec-tests
+
+FROM jstubbs/cloudz3sec
+
+USER root
+COPY requirements-tests.txt .
+RUN python -m pip install -r requirements-tests.txt
+
+USER cloudz3sec
+COPY tests  /home/cloudz3sec/tests
+WORKDIR /home/cloudz3sec
+
+ENTRYPOINT ["pytest"]
