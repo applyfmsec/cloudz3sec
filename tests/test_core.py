@@ -378,6 +378,7 @@ def test_simple_policy_checker_counter_ex(capsys):
     checker.p_implies_q()
     # use capsys to capture stdout; cf., https://docs.pytest.org/en/6.2.x/capture.html
     captured = capsys.readouterr()
+    print(capsys.readouterr())
     assert 'counterexample' in captured.out
 
 
@@ -389,6 +390,7 @@ def test_simple_policy_checker_proved(capsys):
     checker.q_implies_p()
     # use capsys to capture stdout; cf., https://docs.pytest.org/en/6.2.x/capture.html
     captured = capsys.readouterr()
+    capsys.readouterr()
     assert 'proved' in captured.out
 
 
@@ -407,4 +409,84 @@ def test_simple_policy_checker_internals():
     # assert type(checker.free_variables['endpoint']) == z3.z3.SeqRef == type(z3.String('abc'))
     
     assert len(checker.z3_constraint_property_names) == len(checker.policy_type.fields) - 1
-        
+
+
+# Example Firewall Policy
+#Name	Enabled	Action	Local Port	Remote Address	Remote Port	Protocol
+#Foo1	Yes	Allow	100	10.3.141.0	100	UDP
+class FirewallPolicy(core.BasePolicy):
+    # a class representing a firewall policy.
+    # we just specify the fields --
+    fields = [
+        {
+            'name': 'remote_address',
+            'type': core.IpAddr2,
+        },
+        {
+            'name': 'protocol',
+            'type': core.StringEnumRe,
+            'kwargs': {'values': ['UDP','TCP']}
+        },
+        {
+            'name': 'decision',
+            'type': core.Decision
+        }
+    ]
+    # we have to call super() and set the fields we want above.
+    def __init__(self, **kwargs):
+        super().__init__(fields=FirewallPolicy.fields, **kwargs)
+
+def get_firewall_policy_lists():
+    # we'll make two policy lists that each have just one policy in them.
+    # to construct a policy, we need to construct the invidividual fields in the policy.
+
+    remote_ipaddr1 = core.IpAddr2(netmasklen=24)
+    remote_ipaddr1.set_data('11.22.33.0')
+    decision1 = core.Decision('allow')
+
+    proto1 = core.StringEnumRe(values=['TCP','UDP'])
+    proto1.set_data(value='TCP')
+    p1 = FirewallPolicy(remote_address=remote_ipaddr1, protocol=proto1, decision=decision1)
+
+    remote_ipaddr2 = core.IpAddr2(netmasklen=16)
+    remote_ipaddr2.set_data('11.22.0.0')
+    proto2 = core.StringEnumRe(values=['TCP', 'UDP'])
+    proto2.set_data(value='TCP')
+    decision2 = core.Decision('allow')
+    p2 = FirewallPolicy(remote_address=remote_ipaddr2, protocol=proto2, decision=decision2)
+
+    return [p1], [p2]
+
+def get_firewall_policy_equiv_checker():
+    # the PolicyEquivalenceChecker class allows use of z3 to formally analyze the equivalence of two
+    # policy sets.
+    # it requires two lists of policies, with both lists containing policies of a single type.
+    p_list_1, p_list_2 = get_firewall_policy_lists()
+    checker = core.PolicyEquivalenceChecker(policy_type=FirewallPolicy,
+                                            policy_set_p=p_list_1,
+                                            policy_set_q=p_list_2)
+
+    return checker
+
+def test_firwall_policy_checker_proved(capsys):
+    checker = get_firewall_policy_equiv_checker()
+    # we can use the checker to check if the policy sets are equivalent. We know p_list_1 is strictly
+    # less permissive than p_list_2.
+    # this prints "proved"
+    checker.p_implies_q()
+    # use capsys to capture stdout; cf., https://docs.pytest.org/en/6.2.x/capture.html
+    captured = capsys.readouterr()
+    print(capsys.readouterr())
+    assert 'proved' in captured.out
+
+
+def test_firewall_policy_checker_counter_ex(capsys):
+    checker = get_firewall_policy_equiv_checker()
+    # we can use the checker to check if the policy sets are equivalent. We know p_list_1 is strictly
+    # more permissive than p_list_2.
+    # this prints "counterexample"
+    checker.q_implies_p()
+    # use capsys to capture stdout; cf., https://docs.pytest.org/en/6.2.x/capture.html
+    captured = capsys.readouterr()
+    capsys.readouterr()
+    assert 'counterexample' in captured.out
