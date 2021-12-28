@@ -203,10 +203,10 @@ def test_string_re_wildcard_scale(capsys):
     # 10,000 -- test runs in 3326.7 seconds (55 minutes);
     
     # Uncomment one of the following to run tests for certain sizes ---------
-    for n in [10, 100, 1000, 10000]:
+    # for n in [10, 100, 1000, 10000]:
     # for n in [10, 100, 1000]:
     # for n in [10, 100]:
-    # for n in [10]: # n denotes the number of policies; each policy will take a different value.
+    for n in [10]: # n denotes the number of policies; each policy will take a different value.
     # -----------------------------------------------------------------------
         policy_p = []
         policy_q = []

@@ -166,7 +166,38 @@ class ExampleIdentifierType(core.StringRe):
 The `cloud` module makes use of `StringRe` for usernames as well as (POSIX) paths on a file system.
 
 ### The `StringTupleRe` Type
-The `core.StringTupleRe` type is useful for types that are really the composition of multiple `StringRe` and/or `StringEnumRe` types that should be thought of individually for the purposes of wildcard matching, but should be thought of as a single value in the overall policy. A good example comes 
+The `core.StringTupleRe` type is useful for types that are really the composition of multiple `StringRe` and/or `StringEnumRe` types that should be thought of individually for the purposes of wildcard matching, but should be thought of as a single value in the overall policy. 
+
+We illustrate the concept using the example of a principal (a user identity) in a multi-tenant cloud system. In such
+a system, every user belongs to some tenant, and it is typical to represent an end-user identity as a username together with a tenant id. For example, for the `jsmith` user in the `foo` tenant, we might write the principal as `jsmith.foo` (or `jsmith@foo`, etc). For security policies in such a system that authorize principal(s) for one or more resources/actions, it is important to match the entire principal (user and tenant). For example, a security policy that authorizes `jsmith.bar` (`jsmith` in the `bar` tenant) for some resources has no bearing on the `jsmith.foo` user.
+However, with wildcard characters, we want the wildcard to apply to only one component of the principal. For example, `*.foo` would be all users in the foo tenant, while `jsmith*.foo` would be all users in the foo tenant whose username starts with `jsmith`. 
+
+We can create new types based on the StringTupleRe class by 
+specifying a `fields` attribute to the construct. The `fields` attribute is a list of dictionaries, where each 
+dictionary provides the following keys:
+
+* `name: str` - the name of the field.
+* `type: type` - the type of the field (e.g., `StringRe`, `StringEnumRe`).
+* `kwargs: dict` - dictionary of keyword arguments to provide to the constructor of the field. For example, for `StringRe` fields, we should provide the `charset` argument and for `StringEnumRe` fields, we should provide the `values` argument.
+
+As an example, here is how we might define our Principal type described above:
+```python
+from cloudz3sec import core
+
+class Principal(core.StringTupleRe):
+
+    def __init__(self) -> None:
+        self.tenants = ['foo', 'bar', 'baz']
+        fields = [
+            {'name': 'tenant', 'type': core.StringEnumRe, 'kwargs': {'values': tenants}},
+            {'name': 'username', 'type': core.StringRe, 'kwargs': {'charset': ALPHANUM_SET }}
+        ]
+        super().__init__(fields)
+```
+
+
+
+
 
 ### Bit Vectors
 
@@ -175,4 +206,6 @@ The `core.StringTupleRe` type is useful for types that are really the compositio
 
 
 ## Implementation and Contributing New Types
-This section describes the implementation of the main classes in the core module, including the `BaseRe` class and its children classes that support the string types, as well as the `BasePolicy` and `PolicyEquivalenceChecker` classes. 
+This section describes the implementation of the main classes in the core module, including the `BaseRe` class and its children classes that support the string types, as well as the `BasePolicy` and `PolicyEquivalenceChecker` classes. The goal of this section is to explain the ways in which `cloudz3sec` depends on `z3` and what is required to implement new (base) types in the core module.
+
+*To be completed...*
