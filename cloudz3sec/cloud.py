@@ -107,13 +107,16 @@ class Action(core.StringEnumRe):
         values = ['GET', 'POST', 'PUT', 'DELETE']
         super().__init__(values)
 
-# class SrcIp(core.IpAddr):
-#     """
-#     Class representing src ip address
-#     """
-#     def __init__(self, ip_addr ) -> None:
-#         super().__init__(ip_addr)
+class BasicCloudPolicy(core.BasePolicy):
+    fields = [
+        {'name': 'principal', 'type': Principal},
+        {'name': 'resource', 'type': Resource},
+        {'name': 'action', 'type': Action},
+        {'name': 'decision', 'type': core.Decision}
+    ]
 
+    def __init__(self, **kwargs) -> None:
+        super().__init__(fields=BasicCloudPolicy.fields, **kwargs)
 
 
 class CloudPolicy(core.BasePolicy):
@@ -131,6 +134,34 @@ class CloudPolicy(core.BasePolicy):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(fields=CloudPolicy.fields, **kwargs)
+
+
+class BasicCloudPolicyManager(object):
+    def __init__(self, sites=None, tenants=None, services=None):
+        self.sites = sites
+        if not self.sites:
+            self.sites = ['tacc', 'uh']
+        self.tenants = tenants
+        if not self.tenants:
+            self.tenants = ['admin', 'cii', 'dev', 'a2cps', 'tacc']
+        self.services = services
+        if not self.services:
+            self.services = ['actors', 'apps', 'files', 'jobs', 'systems']
+    
+    def policy_from_strs(self, principal: str, resource: str, action: str, decision: str):
+        p = Principal(sites=self.sites, tenants=self.tenants)
+        parts = principal.split('.')
+        if not len(parts) == 3:
+            raise InvalidValueError(f'principal should be contain exactly 2 dot characters; got {principal}')
+        p.set_data(site=parts[0], tenant=parts[1], username=parts[2])
+        r = Resource(sites=self.sites, tenants=self.tenants, services=self.services)
+        parts = resource.split('.')
+        if not len(parts) == 4:
+            raise InvalidValueError(f'resource should be contain exactly 3 dot characters; got {resource}')
+        r.set_data(site=parts[0], tenant=parts[1], service=parts[2], path=parts[3])
+        a = Action()
+        a.set_data(action)
+        return BasicCloudPolicy(principal=p, resource=r, action=a, decision=core.Decision(decision))
 
 
 class CloudPolicyManager(object):
