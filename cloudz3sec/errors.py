@@ -29,6 +29,14 @@ class InvalidStringTupleStructure(BaseCloudz3SecError):
     pass
 
 
+class MissingInstanceData(BaseCloudz3SecError):
+    """
+    Base class that is raised when a type does not have required data set. Used in base class methods; in child classes,
+    one of the more specific exceptions can be thrown.
+    """
+    pass
+
+
 class MissingStringEnumData(BaseCloudz3SecError):
     """
     Raised when a StringEnum type does not have required data set.
