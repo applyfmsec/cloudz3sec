@@ -4,7 +4,7 @@ import z3
 from cloudz3sec import errors
 from cloudz3sec.errors import InvalidValueError, InvalidCharacterError, InvalidStringTupleStructure, \
      InvalidStringTupleData, MissingStringTupleData, InvalidPolicyStructure, MissingPolicyField, MissingStringEnumData, \
-         MissingStringReData, InvalidPolicyFieldType
+         MissingStringReData, InvalidPolicyFieldType, MissingInstanceData
 
 #from cloudz3sec.cloudz3sec.cloud import SrcIp
 
@@ -13,7 +13,7 @@ RESERVED_CHARS = set('.',)
 
 class BaseRe(object):
     """
-    The base class for all classes equpied with z3 regular expressions.
+    The base class for all classes equipped with z3 regular expressions.
     """
     
     def to_re(self, value=None):
@@ -30,13 +30,13 @@ class BaseRe(object):
         """
         Generate a z3 boolean expression in one or more free variables that equals the constraint in the free variable(s)
         represented by the value specified for this instance. 
-        `name` - the name to use when generating the free varaible(s). Typically, the `name` will be given by the name of the
+        `name` - the name to use when generating the free variable(s). Typically, the `name` will be given by the name of the
         field in the policy.
 
         Note: this function can only be called once set_data() has been called on the instance.
         """
         if not hasattr(self, 'data') or not self.data:
-            raise MissingStringEnumData('No data on instance. get_z3_boolref requires data. Was set_data called()?')
+            raise MissingInstanceData('No data on instance. get_z3_boolref requires data. Was set_data called()?')
         free_var = z3.String(name)
         return z3.InRe(free_var, self.to_re())
 
@@ -301,13 +301,18 @@ class BasePolicy(object):
                 found_decision = True
                 self.decision_field = property
             else:
+                # the field names must be unique, as the names are typically used to generate free variable names.
+                # we check for uniqueness of fields here:
+                if f['name'] in [g['name'] for g in not_decision_fields]:
+                    msg = f'Found duplicate field name {property}. Fields in a policy must have unique names.'
+                    raise InvalidPolicyStructure(message=msg)
                 not_decision_fields.append(f)
             if not property in kwargs.keys():
                 raise MissingPolicyField(message=f'Policy requires the {property} parameter. Found: {kwargs.keys()}')
             if not type(kwargs[property]) == prop_type:
                 raise InvalidPolicyFieldType(message=f'field {property} must be of type {prop_type}; got {type(kwargs[property])}.')
             # check that at the least, each field that is not a Decision field has a function on it that
-            # can return the z3 free variable
+            # can return the z3 boolref
             if not prop_type == Decision:
                 if not hasattr(kwargs[property], 'get_z3_boolref'):
                     raise InvalidPolicyFieldType(message=f'field {property} must have a function get_z3_boolref but it does not.')
