@@ -438,7 +438,7 @@ class FirewallPolicy(core.BasePolicy):
 
 def get_firewall_policy_lists():
     # we'll make two policy lists that each have just one policy in them.
-    # to construct a policy, we need to construct the invidividual fields in the policy.
+    # to construct a policy, we need to construct the individual fields in the policy.
 
     remote_ipaddr1 = core.IpAddr2(netmasklen=24)
     remote_ipaddr1.set_data('11.22.33.0')

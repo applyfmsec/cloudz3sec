@@ -231,3 +231,112 @@ def test_string_re_wildcard_scale(capsys):
         capsys.readouterr()
         # the string "proved" should appear exactly once in the stdout, since only p_implies_q() was true
         assert 1 == captured.out.count('proved')
+
+
+class IPAddrPolicy(core.BasePolicy):
+    # a class representing a IP address policy.
+    # we just specify the fields --
+    fields = [
+        {
+            'name': 'remote_address',
+            'type': core.IpAddr2,
+        },
+        {
+            'name': 'decision',
+            'type': core.Decision
+        }
+    ]
+
+    # we have to call super() and set the fields we want above.
+    def __init__(self, **kwargs):
+        super().__init__(fields=IPAddrPolicy.fields, **kwargs)
+
+def test_bitvector_scale_1(capsys):
+    """
+    In this test, we check the scalability of the policy checker with each policy has different ip addresses
+    """
+    # Ballpark performance numbers (run on a 3.5 GHz Dual-Core Intel Corei7)
+    # 10    -- test runs in  1.14 seconds;
+    # 100   -- test runs in 1.48 seconds;
+    # 256   -- test runs in 2.23 seconds;
+    # 1,000 -- test runs in 4.56 seconds;
+    # 10,000 -- test runs in 33.28 seconds;
+
+
+    # Uncomment one of the following to run tests for certain sizes ---------
+    # for n in [10, 100, 1000, 10000]:
+    # for n in [10, 100, 1000]:
+    # for n in [10, 100, 256]:
+    # for n in [10, 100]:
+    for n in [10]:  # n denotes the number of policies; each policy will take a different value.
+        # -----------------------------------------------------------------------
+        policy_p = []
+        policy_q = []
+        for i in range(n):
+            remote_ipaddr1 = core.IpAddr2(netmasklen=24)
+            remote_ipaddr1.set_data('11.22.33.' + str(i % 256))
+            decision1 = core.Decision('allow')
+
+            p1 = IPAddrPolicy(remote_address=remote_ipaddr1, decision=decision1)
+            policy_p.append(p1)
+
+            remote_ipaddr2 = core.IpAddr2(netmasklen=16)
+            remote_ipaddr2.set_data('11.22.0.' + str(i % 256))
+            decision2 = core.Decision('allow')
+            p2 = IPAddrPolicy(remote_address=remote_ipaddr2, decision=decision2)
+            policy_q.append(p2)
+
+        # create the policy checker for both of these
+        chk = core.PolicyEquivalenceChecker(policy_type=IPAddrPolicy, policy_set_p=policy_p, policy_set_q=policy_q)
+        chk.p_implies_q()
+        chk.q_implies_p()
+        captured = capsys.readouterr()
+        capsys.readouterr()
+        # the string "proved" should appear exactly once in the stdout, for p_implies_q(). q_implies_p() is not true
+        assert 1 == captured.out.count('proved')
+
+def test_bitvector_scale_2(capsys):
+    """
+    In this test, we check the scalability of the policy checker with each policy has different ip addresses
+    In this approach, policy_p set has n policies while policy_q set has n*n policies.
+    """
+    # Ballpark performance numbers (run on a 3.5 GHz Dual-Core Intel Corei7)
+    # 10    -- test runs in  1.29 seconds;
+    # 100   -- test runs in 14.53 seconds;
+    # 256   -- test runs in 142.03 seconds (2 minutes 22 seconds);
+    # 1,000 -- test runs in 1684.08 seconds (28 min 4 sec);
+    # 10,000 -- test runs in 33.28 seconds;
+
+    # Uncomment one of the following to run tests for certain sizes ---------
+    # for n in [10, 100, 1000, 10000]: # ??
+    # for n in [10, 100, 1000]: # 1684.08sec  28 min 4 sec
+    # for n in [10, 100, 256]: # 142.03s (2m 22 sec)
+    # for n in [10, 100]:  # 14.53 sec
+    for n in [10]:  # n denotes the number of policies; each policy will take a different value. policy_p has 10 policies, policy_q has 10 * 10 = 100 policies
+    # -----------------------------------------------------------------------
+        policy_p = []
+        policy_q = []
+        for i in range(n):
+            remote_ipaddr1 = core.IpAddr2(netmasklen=24)
+            remote_ipaddr1.set_data('11.22.33.' + str(i % 256))
+            decision1 = core.Decision('allow')
+
+            p1 = IPAddrPolicy(remote_address=remote_ipaddr1, decision=decision1)
+            policy_p.append(p1)
+
+            for j in range(n):
+                 remote_ipaddr2 = core.IpAddr2(netmasklen=16)
+                 remote_ipaddr2.set_data('11.22.' + str(i % 256) + '.' + str(j % 256))
+                 decision2 = core.Decision('allow')
+                 p2 = IPAddrPolicy(remote_address=remote_ipaddr2, decision=decision2)
+                 policy_q.append(p2)
+
+        # create the policy checker for both of these
+        chk = core.PolicyEquivalenceChecker(policy_type=IPAddrPolicy, policy_set_p=policy_p, policy_set_q=policy_q)
+        chk.p_implies_q()
+        chk.q_implies_p()
+        captured = capsys.readouterr()
+        capsys.readouterr()
+        # the string "proved" should appear exactly once in the stdout, for p_implies_q().  q_implies_p() is not true
+        assert 1 == captured.out.count('proved')
+
