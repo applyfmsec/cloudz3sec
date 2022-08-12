@@ -3,7 +3,7 @@ import os
 from z3.z3 import Q
 import pytest
 import sys
-
+import random
 # add the current working directory to the python path so that the tests can run easily from
 # within the tests Docker container
 sys.path.append(os.path.curdir)
@@ -304,12 +304,12 @@ def test_bitvector_scale_2(capsys):
     # 10    -- test runs in  1.29 seconds;
     # 100   -- test runs in 14.53 seconds;
     # 256   -- test runs in 142.03 seconds (2 minutes 22 seconds);
-    # 1,000 -- test runs in 1684.08 seconds (28 min 4 sec);
-    # 10,000 -- test runs in 33.28 seconds;
+    # 1,000 -- test runs in 1684.08 seconds (26 min 35 sec);
+    # 10,000 -- test runs in ??;
 
     # Uncomment one of the following to run tests for certain sizes ---------
     # for n in [10, 100, 1000, 10000]: # ??
-    # for n in [10, 100, 1000]: # 1684.08sec  28 min 4 sec
+    # for n in [10, 100, 1000]: # 1684.08sec  26 min 35 sec
     # for n in [10, 100, 256]: # 142.03s (2m 22 sec)
     # for n in [10, 100]:  # 14.53 sec
     for n in [10]:  # n denotes the number of policies; each policy will take a different value. policy_p has 10 policies, policy_q has 10 * 10 = 100 policies
@@ -340,3 +340,96 @@ def test_bitvector_scale_2(capsys):
         # the string "proved" should appear exactly once in the stdout, for p_implies_q().  q_implies_p() is not true
         assert 1 == captured.out.count('proved')
 
+def test_bitvector_scale_3(capsys):
+    """
+    In this test, we check the scalability of the policy checker with each policy has different ip addresses
+    In this approach, policy_p set has n policies while policy_q set has n*n policies.
+    """
+    # Ballpark performance numbers (run on a 3.5 GHz Dual-Core Intel Corei7)
+    # 10    -- test runs in  1.41 seconds;
+    # 100   -- test runs in  1.61 seconds;
+    # 256   -- test runs in 2.28 sec;
+    # 1,000 -- test runs in 3.86 seconds;
+    # 10,000 -- test runs in 26.26 seconds;
+    # 50,000 -- tes runs in 154.35 secs (2 min 34 seconds)
+
+    # Uncomment one of the following to run tests for certain sizes ---------
+    for n in [10, 100, 1000, 10000, 50000]:  # 154.35 secs (2 min 34 seconds)
+    #for n in [10, 100, 1000, 10000]: # 26.26 sec
+    # for n in [10, 100, 1000]: # 3.86sec
+    # for n in [10, 100, 256]: # 2.28sec
+    #for n in [10, 100]:  # 1.61 sec
+    #for n in [10]:  # n denotes the number of policies; each policy will take a different value. policy_p has 10 policies, policy_q has 10 * 10 = 100 policies
+    # -----------------------------------------------------------------------
+        policy_p = []
+        policy_q = []
+        for i in range(n):
+
+            remote_ipaddr1 = core.IpAddr2(netmasklen=16)
+            remote_ipaddr1.set_data('11.22.' + str(random.randint(0, 255)) + '.' + str(random.randint(0, 255)))
+            decision1 = core.Decision('allow')
+
+            p1 = IPAddrPolicy(remote_address=remote_ipaddr1, decision=decision1)
+            policy_p.append(p1)
+
+            remote_ipaddr2 = core.IpAddr2(netmasklen=8)
+            remote_ipaddr2.set_data('11.0.' + str(random.randint(0, 255)) + '.' + str(random.randint(0, 255)))
+            decision2 = core.Decision('allow')
+            p2 = IPAddrPolicy(remote_address=remote_ipaddr2, decision=decision2)
+            policy_q.append(p2)
+
+        # create the policy checker for both of these
+        chk = core.PolicyEquivalenceChecker(policy_type=IPAddrPolicy, policy_set_p=policy_p, policy_set_q=policy_q)
+        chk.p_implies_q()
+        chk.q_implies_p()
+        captured = capsys.readouterr()
+        capsys.readouterr()
+        # the string "proved" should appear exactly once in the stdout, for p_implies_q().  q_implies_p() is not true
+        assert 1 == captured.out.count('proved')
+
+def test_bitvector_scale_4(capsys):
+    """
+    In this test, we check the scalability of the policy checker with each policy has different ip addresses
+    In this approach, policy_p set has n policies while policy_q set has n*n policies.
+    """
+    # Ballpark performance numbers (run on a 3.5 GHz Dual-Core Intel Corei7)
+    # 10    -- test runs in  1.46 seconds;
+    # 100   -- test runs in  1.65 seconds;
+    # 256   -- test runs in 2.39 sec;
+    # 1,000 -- test runs in 3.99 seconds;
+    # 10,000 -- test runs in 26.49 seconds;
+    # 50,000 -- tes runs in 182.42 secs (3.02 min )
+
+    # Uncomment one of the following to run tests for certain sizes ---------
+    #for n in [10, 100, 1000, 10000, 50000]:  # 182.42 secs (3.02 min )
+    #for n in [10, 100, 1000, 10000]: # 26.49 sec
+    #for n in [10, 100, 1000]: # 3.99sec
+    #for n in [10, 100, 256]: # 2.39sec
+    #for n in [10, 100]:  # 1.65 sec
+    
+    for n in [10]:  # n denotes the number of policies; each policy will take a different value. policy_p has 10 policies, policy_q has 10 * 10 = 100 policies
+        # -----------------------------------------------------------------------
+        policy_p = []
+        policy_q = []
+        for i in range(n):
+            remote_ipaddr1 = core.IpAddr2(netmasklen=16)
+            remote_ipaddr1.set_data('11.22.' + str(random.randint(0, 255)) + '.' + str(random.randint(0, 255)))
+            decision1 = core.Decision('allow')
+
+            p1 = IPAddrPolicy(remote_address=remote_ipaddr1, decision=decision1)
+            policy_p.append(p1)
+
+            remote_ipaddr2 = core.IpAddr2(netmasklen=8)
+            remote_ipaddr2.set_data('11.' + str(random.randint(0, 255)) + '.' + str(random.randint(0, 255)) + '.' + str(random.randint(0, 255)))
+            decision2 = core.Decision('allow')
+            p2 = IPAddrPolicy(remote_address=remote_ipaddr2, decision=decision2)
+            policy_q.append(p2)
+
+        # create the policy checker for both of these
+        chk = core.PolicyEquivalenceChecker(policy_type=IPAddrPolicy, policy_set_p=policy_p, policy_set_q=policy_q)
+        chk.p_implies_q()
+        chk.q_implies_p()
+        captured = capsys.readouterr()
+        capsys.readouterr()
+        # the string "proved" should appear exactly once in the stdout, for p_implies_q().  q_implies_p() is not true
+        assert 1 == captured.out.count('proved')
