@@ -128,7 +128,7 @@ class CloudPolicy(core.BasePolicy):
         {'name': 'principal', 'type': Principal},
         {'name': 'resource', 'type': Resource},
         {'name': 'action', 'type': Action},
-        {'name': 'src_ip', 'type': core.IpAddr2},
+        #{'name': 'src_ip', 'type': core.IpAddr2},
         {'name': 'decision', 'type': core.Decision}
     ]
 
@@ -207,5 +207,19 @@ class CloudPolicyManager(object):
         ipaddr.set_data(ip_addr=src_ip)
         return CloudPolicy(principal=p, resource=r, action=a, src_ip=ipaddr, decision=core.Decision(decision))
 
+    def policy_from_strs(self, principal: str, resource: str, action: str, decision: str):
+        p = Principal(sites=self.sites, tenants=self.tenants)
+        parts = principal.split('.')
+        if not len(parts) == 3:
+            raise InvalidValueError(f'principal should be contain exactly 2 dot characters; got {principal}')
+        p.set_data(site=parts[0], tenant=parts[1], username=parts[2])
+        r = Resource(sites=self.sites, tenants=self.tenants, services=self.services)
+        parts = resource.split('.')
+        if not len(parts) == 4:
+            raise InvalidValueError(f'resource should be contain exactly 3 dot characters; got {resource}')
+        r.set_data(site=parts[0], tenant=parts[1], service=parts[2], path=parts[3])
+        a = Action()
+        a.set_data(action)
 
+        return CloudPolicy(principal=p, resource=r, action=a,  decision=core.Decision(decision))
 
