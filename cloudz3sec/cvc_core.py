@@ -19,17 +19,19 @@ class BaseRe(object):
     """
 
     def __init__(self):
-        slv = cvc5.Solver()
+        #print("Setting up the solver in BaseRe \n")
+
+        self.slv = cvc5.Solver()
         # Set the logic
-        slv.setLogic("QF_SLIA")
+        self.slv.setLogic("ALL")
         # Produce models
-        slv.setOption("produce-models", "true")
+        self.slv.setOption("produce-models", "true")
         # The option strings-exp is needed
-        slv.setOption("strings-exp", "true")
+        self.slv.setOption("strings-exp", "true")
         # Set output language to SMTLIB2
-        slv.setOption("output-language", "smt2")
+        self.slv.setOption("output-language", "smt2")
         # String type
-        string = slv.getStringSort()
+        self.string = self.slv.getStringSort()
 
     def to_re(self, value=None):
         raise NotImplementedError()
@@ -40,28 +42,26 @@ class BaseRe(object):
         Override this method in child classes for more complex types/behavior.
         """
         self.data = value
+        print("\n BaseRe set data =", self.data)
 
     def get_cvc_boolterm(self, name: str) -> cvc5.Term:
-        if not hasattr(self, 'data') or not self.data:
-            raise MissingInstanceData('No data on instance. get_z3_boolref requires data. Was set_data called()?')
+        """
+                Generate a z3 boolean expression in one or more free variables that equals the constraint in the free variable(s)
+                represented by the value specified for this instance.
+                `name` - the name to use when generating the free variable(s). Typically, the `name` will be given by the name of the
+                field in the policy.
 
+                Note: this function can only be called once set_data() has been called on the instance.
+        """
+        if not hasattr(self, 'data') or not self.data:
+            raise MissingInstanceData('No data on instance. get_cvc_bool_term requires data. Was set_data called()?')
+        print("forming cvc boolterm -->" , name)
         # String variables
         free_var = self.slv.mkConst(self.string, name)
-        return self.slv.mkTerm(Kind.STRING_IN_REGEXP, free_var, self.to_re())
-
-    def get_z3_boolref(self, name: str) -> z3.z3.BoolRef:
-        """
-        Generate a z3 boolean expression in one or more free variables that equals the constraint in the free variable(s)
-        represented by the value specified for this instance.
-        `name` - the name to use when generating the free variable(s). Typically, the `name` will be given by the name of the
-        field in the policy.
-
-        Note: this function can only be called once set_data() has been called on the instance.
-        """
-        if not hasattr(self, 'data') or not self.data:
-            raise MissingInstanceData('No data on instance. get_z3_boolref requires data. Was set_data called()?')
-        free_var = z3.String(name)
-        return z3.InRe(free_var, self.to_re())
+        print("free_var = ", free_var)
+        term = self.slv.mkTerm(Kind.STRING_IN_REGEXP, free_var, self.to_re())
+        print(" \n term = " , term)
+        return term
 
 
 class StringEnumRe(BaseRe):
@@ -103,8 +103,13 @@ class StringEnumRe(BaseRe):
             message = f"value {value} is not allowed for type {type(self)}; allowed values are {self.values}"
             raise InvalidValueError(message=message)
         #return z3.Re(z3.StringVal(value))
-        return self.slv.mkTerm(Kind.STRING_TO_REGEXP,
+        print("\n StringEnumRe = ", value)
+        term = self.slv.mkTerm(Kind.STRING_TO_REGEXP,
                         self.slv.mkString(value))
+        print(" \n term = ", term)
+        return term
+        #return self.slv.mkTerm(Kind.STRING_TO_REGEXP,
+        #                self.slv.mkString(value))
 
 
 class StringRe(BaseRe):
@@ -195,21 +200,41 @@ class StringTupleRe(BaseRe):
         self.field_names = [f['name'] for f in self.fields]
         self.data = {}
 
-    def to_re(self):
+    def to_re(self) :
         if not self.data:
             raise MissingStringTupleData(f'No data found on {type(self)} object; was set_data() called?')
         res = []
+        # for debugging
+        i=0
+        print("\n fields: ", self.fields)
+        ###
         for idx, field in enumerate(self.fields):
             value = self.data[field['name']]
+            print("\n name  = ", value, "  field = ", field)
             res.append(field['type'].to_re(getattr(self, field['name']), value))
+            #### for debugging
+            if i == 0:
+                print("\n res = ", res)
+            i = i + 1
+            ####
             # separate each field in the tuple with a dot ('.') character, but not after the very last field:
             if idx < len(self.fields) - 1:
+                print ("\n size(fields) = ", len(self.fields),  " idx = ", idx)
                 #res.append(z3.Re(z3.StringVal('.')))
                 res.append(self.slv.mkTerm(Kind.STRING_TO_REGEXP,
                                self.slv.mkString('.')))
-
+                print("\n res = ", res)
+            #print(res)
         #return z3.Concat(*res)
-        return self.slv.mkTerm(Kind.REGEXP_CONCAT,*res)
+        print("\n final res = ", res)
+        e = self.slv.mkTerm(Kind.STRING_TO_REGEXP,self.slv.mkString('tacc'))
+
+        #e = res[0]
+        y = self.slv.mkTerm(Kind.REGEXP_CONCAT, *res)
+        print("y = ", y)
+        return y
+
+        #return self.slv.mkTerm(Kind.REGEXP_CONCAT,e, p[1],p[2],p[3], p[4])
 
     def set_data(self, **kwargs):
         for k, v in kwargs.items():
@@ -217,6 +242,7 @@ class StringTupleRe(BaseRe):
                 raise InvalidStringTupleData(
                     message=f'Got unexpected argument {k} to set_data(). Fields are: {self.field_names}')
             self.data[k] = v
+        print("\n StringTupleRe set data =", self.data)
         # check that all fields were set
         for f in self.field_names:
             if f not in self.data.keys():
@@ -229,8 +255,8 @@ class IpAddr2(object):
     """
 
     def __init__(self, netmasklen: int):
-        slv = cvc5.Solver()
-        slv.setLogic("QF_BV")
+        self.slv = cvc5.Solver()
+        self.slv.setLogic("QF_BV")
 
         self.netmasklen = netmasklen
         if self.netmasklen == 24:
@@ -257,6 +283,7 @@ class IpAddr2(object):
         addr_bit_vecs = [self.slv.mkBitVector(8,part) for part in parts]
         #return z3.Concat(*addr_bit_vecs)
         return self.slv.mkTerm(Kind.REGEXP_CONCAT, *addr_bit_vecs)
+
     def set_data(self, ip_addr: str):
         """
         Set the actual IP address for this instance.
@@ -273,58 +300,6 @@ class IpAddr2(object):
                                     self.slv.mkBitVectorConst(8, f'{name}_d'))
         return self.slv.simplify(self.slv.mkTerm(Kind.EQUAL,self.slv.simplify(self.slv.mkTerm(Kind.BITVECTOR_AND,free_vars, self.netmask_bv)),
                                                  self.masked_ip_bv))
-
-    def get_z3_boolref(self, name):
-        # TODO -- test this for correctness
-        free_vars = z3.Concat(z3.BitVec(f'{name}_a', 8),
-                              z3.BitVec(f'{name}_b', 8),
-                              z3.BitVec(f'{name}_c', 8),
-                              z3.BitVec(f'{name}_d', 8))
-        return z3.simplify(free_vars & self.netmask_bv == self.masked_ip_bv)
-
-
-class IpAddr(object):
-    """
-    A class representing string of the IP address in the CIDR format
-    """
-
-    def __init__(self, ip_addr: str) -> None:
-        # TODO check if the format of the ip address is a.b.c.d/[0..32]
-        # TODO where a,b,c,d  each lies between 0 and 255
-        ip_split = ip_addr.split('/')
-        self.ip = ip_split[0]
-        self.netmasklen = ip_split[1]
-        print(self.netmasklen)
-
-    def convert_to_bv(self, ip: str):
-        # ip_split = ip_addr.split('/')
-        print(" converting ip to bit vec: " + ip)
-        abcd = ip.split('.')
-        addr_bit_vec = []
-        for i in range(0, 4):
-            addr_bit_vec.append(z3.BitVecVal(abcd[i], 8))
-        ip_bit_vec = z3.Concat(addr_bit_vec[0], addr_bit_vec[1], addr_bit_vec[2], addr_bit_vec[3])
-        print("sexpr :" + str(ip_bit_vec.sexpr()))
-        return ip_bit_vec
-
-    # def netmask_bv(self, ip_bit_vec:z3.BitVecRef, netmask_bit_vec:z3.BitVecRef):
-    #    return ip_bit_vec & netmask_bit_vec
-
-    def set_data(self):
-        ip_bv = self.convert_to_bv(self.ip)
-        if self.netmasklen == '24':
-            netmask_bv = self.convert_to_bv('255.255.255.0')
-        else:  # 16 bit
-            netmask_bv = self.convert_to_bv('255.255.0.0')
-
-        self.masked_ip_bv = ip_bv & netmask_bv
-        print('masked_ip_bv: ' + str(z3.simplify(self.masked_ip_bv)))
-
-    # def match(self, bit_vec_1: z3.BitVecRef,bit_vec_2:z3.BitVecRef ):
-    #    return z3.simplify(bit_vec_1 == bit_vec_2)
-    def to_masked_bv(self):
-        return self.masked_ip_bv
-
 
 class Decision(object):
     """
@@ -386,7 +361,7 @@ class BasePolicy(object):
             # check that at the least, each field that is not a Decision field has a function on it that
             # can return the z3 boolref
             if not prop_type == Decision:
-                if not hasattr(kwargs[property], 'get_z3_boolref'):
+                if not hasattr(kwargs[property], 'get_cvc_boolterm'):
                     raise InvalidPolicyFieldType(
                         message=f'field {property} must have a function get_z3_boolref but it does not.')
             # this creates an attribute on the Policy object whose name is the name of the field and whose
@@ -408,15 +383,15 @@ class PolicyEquivalenceChecker(object):
     """
 
     def __init__(self, policy_type: type, policy_set_p: list[BasePolicy], policy_set_q: list[BasePolicy]):
-        slv = cvc5.Solver()
+        self.slv = cvc5.Solver()
         # Set the logic
-        slv.setLogic("QF_SLIA")
+        self.slv.setLogic("ALL")
         # Produce models
-        slv.setOption("produce-models", "true")
+        self.slv.setOption("produce-models", "true")
         # The option strings-exp is needed
-        slv.setOption("strings-exp", "true")
+        self.slv.setOption("strings-exp", "true")
         # Set output language to SMTLIB2
-        slv.setOption("output-language", "smt2")
+        self.slv.setOption("output-language", "smt2")
 
 
 
@@ -459,14 +434,19 @@ class PolicyEquivalenceChecker(object):
     def get_match_list(self, policy_set: list[BasePolicy]):
         and_list = []
         for p in policy_set:
-            # and_re = [ z3.InRe(self.free_variables[f], getattr(p, f).to_re()) if self.free_variables_type[f] != IpAddr  else z3.simplify(self.free_variables[f] & self.get_masked_bv(getattr(p,f).netmasklen) == getattr(p,f).to_masked_bv()) for f in self.free_variables.keys() ]
-            # and_re = [getattr(p, f).get_z3_boolref(f) for f in self.free_variables.keys()]
             #boolrefs = [getattr(p, f).get_z3_boolref(f) for f in self.z3_constraint_property_names]
-            boolrefs = [getattr(p, f).get_cvc_boolterm(f) for f in self.z3_constraint_property_names]
-            #and_list.append(z3.And(*boolrefs))
-            and_list.append(self.slv.mkTerm(Kind.AND, *boolrefs))
+            #boolrefs = [getattr(p, f).get_cvc_boolterm(f) for f in self.z3_constraint_property_names]
+            boolterms = []
+            for f in self.z3_constraint_property_names:
+                print("f = ", f, " \n")
+                boolterms.append(getattr(p, f).get_cvc_boolterm(f))
+                #print(boolterms)
 
-        print(and_list)
+            #and_list.append(z3.And(*boolrefs))
+            and_list.append(self.slv.mkTerm(Kind.AND, *boolterms))
+
+
+        #print(and_list)
         return and_list
 
     def get_policy_set_re(self, allow_match_list: list, deny_match_list: list):
