@@ -7,7 +7,8 @@ COPY requirements-tests.txt .
 RUN python -m pip install -r requirements-tests.txt
 
 USER cloudz3sec
-COPY tests  /home/cloudz3sec/tests
+COPY tests/__init__.py  /home/cloudz3sec/tests/__init__.py
+COPY tests/test_* /home/cloudz3sec/tests/
 
 COPY examples /home/cloudz3sec/examples
 WORKDIR /home/cloudz3sec

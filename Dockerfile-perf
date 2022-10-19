@@ -1,0 +1,9 @@
+FROM jstubbs/cloudz3sec-tests
+
+USER root
+COPY requirements-perf.txt .
+RUN pip install --upgrade pip
+RUN python -m pip install -r requirements-perf.txt
+
+USER cloudz3sec
+COPY tests/performance_measurement.py  /home/cloudz3sec/tests/performance_measurement.py
