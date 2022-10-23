@@ -1,9 +1,15 @@
 FROM jstubbs/cloudz3sec-tests
 
 USER root
+RUN apt-get update && apt-get install -y vim
 COPY requirements-perf.txt .
 RUN pip install --upgrade pip
 RUN python -m pip install -r requirements-perf.txt
 
+
 USER cloudz3sec
-COPY tests/performance_measurement.py  /home/cloudz3sec/tests/performance_measurement.py
+COPY tests/*  /home/cloudz3sec/tests/
+
+USER root
+RUN chown -R cloudz3sec /home/cloudz3sec
+USER cloudz3sec
