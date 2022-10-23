@@ -94,8 +94,11 @@ def measure_string_wc(ns=[10, 100, 1000], test_reps=4):
     return result
 
 
-#         
+# Example runs:
+# ============        
 # measure_enum(ns=[10+(30*i) for i in range(34)], test_reps=4)
-# measure_enum(ns=[], test_reps=4)
+# measure_enum(ns=[1000+ (1000*i) for i in range(10)], test_reps=4)
+#
+# measure_string_wc(ns=[10,20], test_reps=4)
 
 
